@@ -9,7 +9,630 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Onest:wght@400;500;600;700&display=swap">
-  <link rel="stylesheet" href="css/style.css">
+  <style>
+/* =========================================================
+   Floodlit — turf booking demo
+   Layout: a floodlit night pitch opens the page, then a fixtures-board
+   list of pitches; booking slides in from the right like a team sheet.
+   Single deliberate look: a Dhaka turf at night under floodlights.
+   ========================================================= */
+:root {
+  /* colour */
+  --night: #0A1733;        /* stadium night sky, page ground */
+  --night-2: #102148;      /* raised surfaces, drawers, panels */
+  --night-3: #193262;      /* hover, pressed, toasts */
+  --board: #060E24;        /* departure-board / scoreboard panels */
+  --rule: rgba(190, 210, 255, .13);
+  --rule-strong: rgba(190, 210, 255, .26);
+  --chalk: #F1F4EA;        /* pitch-line white, main text */
+  --mist: #A9B8DA;         /* secondary text */
+  --mist-2: #8193BD;       /* quiet text */
+  --flood: #FFC24B;        /* sodium floodlight, the one accent */
+  --flood-hi: #FFD47E;
+  --flood-ink: #2B1B00;
+  --turf: #3FBF7F;         /* available, success */
+  --turf-deep: #0F3A2A;
+  --alert: #FF8C7C;        /* taken, errors */
+  --s-online: #C98420;     /* chart series: online bookings */
+  --s-walkin: #3E8FE0;     /* chart series: walk-ins */
+  --ink-on-series: #0B1020;
+
+  /* type */
+  --display: "Big Shoulders Display", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+  --body: "Onest", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --t-xs: 12px; --t-sm: 13.5px; --t-md: 16px; --t-lg: 19px; --t-xl: 26px; --t-2xl: 40px; --t-3xl: 60px;
+
+  /* layout */
+  --gutter: max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
+  --gutter-r: max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px));
+  --nav-h: 64px;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+
+  color-scheme: dark;
+}
+
+/* ---------- base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--chalk);
+  font-family: var(--body);
+  font-size: var(--t-md);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px);
+  z-index: 60; background: var(--night);
+}
+img, svg, canvas { max-width: 100%; }
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--flood); outline-offset: 3px; border-radius: 6px; }
+.show-sm { display: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 16px; top: -60px; z-index: 100; background: var(--flood); color: var(--flood-ink); padding: 10px 14px; border-radius: 8px; font-weight: 700; }
+.skip:focus { top: 12px; }
+
+.wrap { max-width: 1240px; margin-inline: auto; padding-left: var(--gutter); padding-right: var(--gutter-r); }
+.section { padding-block: 72px; }
+[id] { scroll-margin-top: calc(var(--nav-h) + 16px); }
+
+/* ---------- buttons & controls ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid transparent;
+  font-weight: 600; font-size: 15px; text-decoration: none; white-space: nowrap;
+  transition: background-color .2s, border-color .2s, transform .2s var(--ease), box-shadow .2s;
+}
+.btn:active { transform: scale(.97); }
+.btn-lg { min-height: 52px; padding: 0 26px; font-size: 16px; }
+.btn-block { width: 100%; }
+.btn-primary { background: var(--flood); color: var(--flood-ink); }
+.btn-primary:hover { background: var(--flood-hi); box-shadow: 0 6px 28px rgba(255, 194, 75, .35); }
+.btn-ghost { background: transparent; color: var(--chalk); border-color: var(--rule-strong); }
+.btn-ghost:hover { border-color: var(--chalk); background: rgba(241, 244, 234, .05); }
+.btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; transform: none; }
+.link-btn { background: none; border: 0; padding: 4px 0; color: var(--mist); text-decoration: underline; text-underline-offset: 3px; }
+.link-btn:hover { color: var(--chalk); }
+.icon-btn { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 1px solid var(--rule); border-radius: 50%; flex: none; }
+.icon-btn:hover { border-color: var(--rule-strong); background: var(--night-3); }
+.icon-btn svg { width: 20px; height: 20px; stroke: var(--chalk); stroke-width: 2; stroke-linecap: round; fill: none; }
+
+input[type=text], input[type=tel], select {
+  width: 100%; min-height: 44px; padding: 0 12px; background: var(--night);
+  border: 1px solid var(--rule-strong); border-radius: 10px; color: var(--chalk);
+}
+select { appearance: none; -webkit-appearance: none; padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--mist) 50%), linear-gradient(135deg, var(--mist) 50%, transparent 50%);
+  background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; }
+select option { background: var(--night-2); color: var(--chalk); }
+input::placeholder { color: var(--mist-2); }
+input:focus, select:focus { border-color: var(--flood); outline: none; box-shadow: 0 0 0 3px rgba(255, 194, 75, .2); }
+input[type=range] { width: 100%; accent-color: var(--flood); }
+label { display: grid; gap: 6px; font-size: var(--t-sm); color: var(--mist); font-weight: 500; }
+.opt { color: var(--mist-2); font-weight: 400; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-err { color: var(--alert); font-size: var(--t-sm); }
+
+.seg { display: inline-flex; flex-wrap: wrap; background: var(--night); border: 1px solid var(--rule); border-radius: 12px; padding: 3px; gap: 2px; }
+.seg button { border: 0; background: none; color: var(--mist); padding: 8px 12px; border-radius: 9px; font-size: 14px; font-weight: 500; min-height: 36px; transition: background-color .2s, color .2s; }
+.seg button:hover { color: var(--chalk); }
+.seg button[aria-pressed=true] { background: var(--night-3); color: var(--chalk); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+
+.tog { border: 1px solid var(--rule-strong); background: var(--night); color: var(--mist); padding: 8px 14px; border-radius: 999px; font-size: 14px; min-height: 40px; }
+.tog[aria-pressed=true] { border-color: var(--flood); color: var(--flood); background: rgba(255, 194, 75, .08); }
+.toggles { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.switch { width: 48px; height: 28px; border-radius: 999px; border: 1px solid var(--rule-strong); background: var(--night); position: relative; flex: none; }
+.switch i { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--mist); transition: transform .25s var(--ease), background-color .25s; }
+.switch[aria-checked=true] { background: rgba(255, 194, 75, .18); border-color: var(--flood); }
+.switch[aria-checked=true] i { transform: translateX(20px); background: var(--flood); }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: var(--t-xs); font-weight: 600; border: 1px solid var(--rule-strong); color: var(--mist); }
+.panel { background: var(--night-2); border: 1px solid var(--rule); border-radius: 18px; padding: 22px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px 16px; margin-bottom: 16px; }
+.panel-title { font-family: var(--display); font-weight: 700; font-size: var(--t-xl); letter-spacing: .01em; line-height: 1.1; }
+.panel-sub { color: var(--mist); font-size: var(--t-sm); margin-top: 4px; }
+
+/* ---------- nav ---------- */
+.nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; background: rgba(10, 23, 51, .84); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border-bottom: 1px solid var(--rule); }
+.nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: var(--nav-h); }
+.brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; font-family: var(--display); font-weight: 800; font-size: 27px; letter-spacing: .03em; text-transform: uppercase; }
+.brand-mark { width: 28px; height: 28px; fill: var(--flood); filter: drop-shadow(0 0 6px rgba(255, 194, 75, .7)); }
+.brand-mark .pole { fill: var(--mist-2); filter: none; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links > a, .nav-mine { white-space: nowrap; padding: 8px 12px; border-radius: 999px; text-decoration: none; font-size: 15px; font-weight: 500; color: var(--mist); background: none; border: 0; display: inline-flex; align-items: center; gap: 8px; min-height: 40px; }
+.nav-links > a:hover, .nav-mine:hover { color: var(--chalk); background: rgba(241, 244, 234, .06); }
+.nav-switch { gap: 0 !important; border: 1px solid var(--rule-strong) !important; color: var(--chalk) !important; margin-left: 6px; }
+.badge { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--flood); color: var(--flood-ink); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.badge.bump { animation: bump .5s var(--ease); }
+@keyframes bump { 40% { transform: scale(1.35); } }
+
+/* ---------- hero ---------- */
+.hero { position: relative; overflow: hidden;
+  background:
+    radial-gradient(900px 520px at 78% 18%, rgba(255, 210, 130, .08), transparent 65%),
+    radial-gradient(1100px 600px at 70% 70%, rgba(60, 110, 220, .16), transparent 62%),
+    var(--night); }
+.hero-inner { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; gap: 16px; padding-block: 40px 24px; }
+.hero-copy { position: relative; z-index: 2; padding-block: 24px; }
+.hero-title { font-family: var(--display); font-weight: 900; text-transform: uppercase; font-size: clamp(56px, 7.6vw, 116px); line-height: .86; letter-spacing: .004em; margin-bottom: 22px; }
+.hero-lede { font-size: var(--t-lg); color: var(--mist); max-width: 32em; line-height: 1.5; }
+.hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
+.hero-stage { position: relative; height: clamp(380px, 46vw, 600px); margin-right: calc(-1 * var(--gutter-r)); }
+#pitch3d { display: block; width: 100%; height: 100%;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 94%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 10%, #000 88%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 0, #000 12%, #000 94%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 10%, #000 88%, transparent 100%);
+  mask-composite: intersect; }
+
+.sb { position: absolute; top: 18px; right: calc(var(--gutter-r) + 4px); background: rgba(6, 14, 36, .82); border: 1px solid var(--rule-strong); border-radius: 14px; padding: 10px 16px 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: lightUp .8s var(--ease) 2.5s both; }
+.sb-where { font-size: var(--t-xs); color: var(--mist); display: flex; align-items: center; gap: 6px; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--alert); box-shadow: 0 0 0 0 rgba(255, 140, 124, .6); animation: livePulse 1.6s infinite; }
+@keyframes livePulse { 70% { box-shadow: 0 0 0 7px rgba(255, 140, 124, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 140, 124, 0); } }
+.sb-row { display: flex; align-items: center; gap: 12px; margin-top: 4px; font-size: var(--t-sm); font-weight: 600; }
+.sb-team { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.kit { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.kit-a { background: var(--flood); } .kit-b { background: #8CCBFF; }
+.sb-score { font-family: var(--display); font-weight: 800; font-size: 34px; line-height: 1; color: var(--flood); text-shadow: 0 0 18px rgba(255, 194, 75, .55); font-variant-numeric: tabular-nums; min-width: 2.6ch; text-align: center; }
+.sb.is-goal .sb-score { animation: goal 1.4s var(--ease); }
+@keyframes goal { 0%, 100% { transform: none; } 15% { transform: scale(1.5); color: #fff; text-shadow: 0 0 30px rgba(255, 220, 150, .95); } }
+
+.open-now { position: absolute; left: 8px; bottom: 16px; display: flex; align-items: center; gap: 12px; background: rgba(6, 14, 36, .82); border: 1px solid var(--rule-strong); border-radius: 14px; padding: 10px 16px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); animation: lightUp .8s var(--ease) 2.8s both; }
+.open-n { font-family: var(--display); font-weight: 800; font-size: 44px; line-height: 1; color: var(--turf); font-variant-numeric: tabular-nums; }
+.open-l { font-size: var(--t-sm); color: var(--mist); line-height: 1.35; }
+.open-l span:first-child { color: var(--chalk); font-weight: 600; }
+@keyframes lightUp { from { opacity: 0; transform: translateY(8px); filter: brightness(.4); } to { opacity: 1; transform: none; filter: none; } }
+
+/* ---------- section heads ---------- */
+.sec-head { display: grid; gap: 8px; margin-bottom: 28px; }
+.sec-title { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: clamp(40px, 5.2vw, var(--t-3xl)); line-height: .95; letter-spacing: .01em; }
+.sec-sub { color: var(--mist); font-size: 17px; max-width: 60ch; }
+
+/* ---------- finder console ---------- */
+.console { background: var(--night-2); border: 1px solid var(--rule); border-radius: 22px; padding: 18px; display: grid; gap: 14px; }
+.ask { position: relative; display: flex; gap: 8px; align-items: center; }
+.ask-field { position: relative; flex: 1; min-width: 0; }
+.ask-icon { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; fill: none; stroke: var(--mist); stroke-width: 2; stroke-linecap: round; pointer-events: none; }
+.ask input { width: 100%; min-height: 54px; border-radius: 999px; padding-left: 48px; font-size: 17px; background: var(--night); }
+.ask .btn { min-height: 54px; padding: 0 26px; }
+.ask-try { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--t-sm); color: var(--mist-2); }
+.try { background: none; border: 1px dashed var(--rule-strong); color: var(--mist); border-radius: 999px; padding: 5px 12px; font-size: var(--t-sm); }
+.try:hover { color: var(--chalk); border-color: var(--mist); }
+.ask-read { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: var(--t-sm); color: var(--mist); }
+.ask-read .chip { background: rgba(255, 194, 75, .12); color: var(--flood); border-radius: 999px; padding: 3px 10px; font-weight: 600; animation: chipIn .35s var(--ease) both; animation-delay: calc(var(--i, 0) * 60ms); }
+.ask-read .err { color: var(--alert); }
+@keyframes chipIn { from { opacity: 0; transform: translateY(6px) scale(.9); } }
+
+.filters { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-end; padding-top: 14px; border-top: 1px solid var(--rule); }
+.f-group { display: grid; gap: 6px; min-width: 0; }
+.f-label { font-size: var(--t-xs); color: var(--mist-2); font-weight: 600; letter-spacing: .02em; display: flex; justify-content: space-between; gap: 10px; }
+.f-label output { color: var(--chalk); font-variant-numeric: tabular-nums; }
+.f-dates { flex-basis: 100%; }
+.f-price { width: 200px; }
+.f-group select { min-width: 170px; }
+.dates { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: thin; }
+.date { flex: none; display: grid; justify-items: center; gap: 0; min-width: 62px; padding: 6px 10px; background: var(--night); border: 1px solid var(--rule); border-radius: 12px; color: var(--mist); }
+.date b { font-family: var(--display); font-size: 24px; font-weight: 700; line-height: 1.1; color: var(--chalk); font-variant-numeric: tabular-nums; }
+.date small { font-size: 12px; }
+.date.wknd::after { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--flood); margin-top: 3px; }
+.date { position: relative; }
+.date[aria-pressed=true] { border-color: var(--flood); background: rgba(255, 194, 75, .1); color: var(--flood); }
+.date[aria-pressed=true] b { color: var(--flood); }
+
+.results-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 30px 0 4px; color: var(--mist); }
+.results-meta b { color: var(--chalk); }
+
+/* ---------- fixtures list (results) ---------- */
+.fixtures { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.fx { display: grid; grid-template-columns: 172px minmax(0, 1.25fr) minmax(0, 1.7fr) 150px; gap: 26px; align-items: center; padding-block: 22px; border-bottom: 1px solid var(--rule); }
+.fx-thumb { border-radius: 14px; overflow: hidden; aspect-ratio: 16 / 11; max-width: 100%; border: 1px solid var(--rule); background: var(--board); }
+.fx-thumb svg { display: block; width: 100%; height: 100%; }
+.fx-name { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1; letter-spacing: .01em; }
+.fx-meta { color: var(--mist); font-size: var(--t-sm); margin-top: 6px; }
+.fx-rate { display: flex; align-items: center; gap: 6px; font-size: var(--t-sm); margin-top: 8px; font-weight: 600; }
+.fx-rate .star { color: var(--flood); }
+.fx-rate span { color: var(--mist-2); font-weight: 400; }
+.feats { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; padding: 0; margin: 10px 0 0; }
+.feats li { font-size: 12px; color: var(--mist); border: 1px solid var(--rule); border-radius: 6px; padding: 2px 8px; }
+.fx-slots-l { font-size: var(--t-xs); color: var(--mist-2); font-weight: 600; margin-bottom: 8px; }
+.board { display: flex; flex-wrap: wrap; gap: 6px; }
+.flip { position: relative; display: grid; grid-template-columns: auto auto; align-items: baseline; column-gap: 4px; padding: 7px 11px 6px; min-width: 78px; background: var(--board); border: 1px solid #22355F; border-radius: 9px; color: var(--flood); transform-origin: 50% 50%; transition: border-color .2s, background-color .2s, transform .2s var(--ease); }
+.flip::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: rgba(0, 0, 0, .55); }
+.flip b { font-family: var(--display); font-size: 25px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.flip i { font-style: normal; font-size: 11px; font-weight: 600; color: var(--mist); }
+.flip small { grid-column: 1 / -1; font-size: 11px; color: var(--mist-2); line-height: 1.2; margin-top: 2px; }
+.flip small em { font-style: normal; font-weight: 700; color: var(--chalk); background: var(--night-3); border-radius: 3px; padding: 0 4px; margin-right: 5px; }
+.flip:hover { border-color: var(--flood); background: #0B1734; transform: translateY(-2px); }
+.flip.in { animation: flipIn .55s var(--ease) both; animation-delay: calc(var(--i, 0) * 40ms); }
+@keyframes flipIn { from { transform: perspective(400px) rotateX(-95deg); opacity: .2; } to { transform: none; opacity: 1; } }
+.board-more { align-self: center; font-size: var(--t-sm); color: var(--mist-2); padding: 0 4px; }
+.fx-cta { display: grid; gap: 10px; justify-items: end; text-align: right; }
+.fx-price { font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums; }
+.fx-price small { display: block; font-family: var(--body); font-size: 12px; font-weight: 500; color: var(--mist-2); margin-bottom: 4px; }
+.fx.is-full .fx-thumb, .fx.is-full .fx-main { opacity: .55; }
+.fx-full-note { font-size: var(--t-sm); color: var(--mist); }
+.empty { padding: 48px 0; text-align: center; color: var(--mist); display: grid; gap: 14px; justify-items: center; }
+
+/* ---------- owner band ---------- */
+.owner-band { background: linear-gradient(100deg, var(--turf-deep), #0D2B3F 70%); border-block: 1px solid var(--rule); position: relative; overflow: hidden; }
+.owner-band::after { content: ""; position: absolute; right: -80px; top: 50%; width: 300px; height: 300px; transform: translateY(-50%); border: 2px solid rgba(241, 244, 234, .12); border-radius: 50%; pointer-events: none; }
+.band-inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px 40px; padding-block: 44px; position: relative; z-index: 1; }
+.band-inner p { color: var(--mist); max-width: 52ch; margin-top: 6px; }
+.band-title { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 44px; line-height: 1; }
+
+/* ---------- squad board ---------- */
+.squad-layout { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
+.squad-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.sq { display: grid; grid-template-columns: 112px minmax(0, 1fr) 150px auto; gap: 20px; align-items: center; padding-block: 18px; border-bottom: 1px solid var(--rule); }
+.sq.is-new { animation: newRow 1.6s var(--ease); }
+@keyframes newRow { from { background: rgba(255, 194, 75, .16); } to { background: transparent; } }
+.sq-time b { display: block; font-family: var(--display); font-size: 34px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.sq-time b i { font-style: normal; font-size: 14px; color: var(--mist); margin-left: 3px; font-family: var(--body); font-weight: 600; }
+.sq-time span { font-size: 12px; color: var(--mist-2); }
+.sq-team { font-weight: 700; font-size: 17px; }
+.sq-where { color: var(--mist); font-size: var(--t-sm); }
+.sq-note { color: var(--mist-2); font-size: var(--t-sm); margin-top: 4px; }
+.sq-need { display: grid; gap: 6px; }
+.lvl { justify-self: start; }
+.lvl-casual { color: var(--turf); border-color: rgba(63, 191, 127, .4); }
+.lvl-intermediate { color: #8CCBFF; border-color: rgba(140, 203, 255, .4); }
+.lvl-competitive { color: var(--alert); border-color: rgba(255, 140, 124, .4); }
+.spots { display: flex; gap: 4px; }
+.spots i { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--mist-2); transition: background-color .3s, border-color .3s, transform .3s var(--ease); }
+.spots i.on { background: var(--turf); border-color: var(--turf); }
+.spots i.pop { transform: scale(1.4); }
+.sq-left { font-size: 12px; color: var(--mist); }
+.sq .btn { min-width: 112px; }
+.sq .btn[aria-pressed=true] { background: rgba(63, 191, 127, .14); color: var(--turf); border-color: var(--turf); }
+.post-form { display: grid; gap: 14px; position: sticky; top: calc(var(--nav-h) + 20px); }
+
+/* ---------- footer ---------- */
+.foot { border-top: 1px solid var(--rule); }
+.foot-inner { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 24px; padding-block: 28px calc(28px + env(safe-area-inset-bottom, 0px)); color: var(--mist-2); font-size: var(--t-sm); }
+.foot-brand { font-family: var(--display); font-weight: 800; text-transform: uppercase; font-size: 20px; color: var(--chalk); }
+.foot-credit { margin-left: auto; }
+
+/* ---------- drawers ---------- */
+.scrim { position: fixed; inset: 0; z-index: 70; background: rgba(3, 8, 22, .62); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); opacity: 0; transition: opacity .35s; }
+.scrim.is-open { opacity: 1; }
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 80; width: min(600px, 100%); display: flex; flex-direction: column; background: var(--night-2); border-left: 1px solid var(--rule-strong); box-shadow: -30px 0 80px rgba(0, 0, 0, .45); transform: translateX(104%); transition: transform .5s var(--ease); padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); padding-right: env(safe-area-inset-right, 0px); overflow: hidden; }
+.drawer.is-open { transform: none; }
+.dr-head { display: flex; align-items: center; gap: 14px; padding: 18px 22px 14px; border-bottom: 1px solid var(--rule); }
+.dr-titles { flex: 1; min-width: 0; }
+.dr-title { font-family: var(--display); font-weight: 800; font-size: 32px; line-height: 1; letter-spacing: .01em; }
+.dr-sub { color: var(--mist); font-size: var(--t-sm); margin-top: 4px; }
+.dr-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 22px 28px; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 22px; overscroll-behavior: contain; }
+.dr-foot { display: flex; align-items: center; gap: 14px; justify-content: space-between; padding: 14px 22px; border-top: 1px solid var(--rule); background: var(--night-2); }
+.dr-foot:empty { display: none; }
+.foot-sum { min-width: 0; font-size: var(--t-sm); color: var(--mist); line-height: 1.35; }
+.foot-sum b { display: block; font-family: var(--display); font-size: 28px; color: var(--chalk); font-weight: 800; font-variant-numeric: tabular-nums; }
+.dr-pane { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 22px; animation: paneIn .45s var(--ease) both; }
+@keyframes paneIn { from { opacity: 0; transform: translateX(24px); } }
+
+.hold { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 1px solid rgba(255, 194, 75, .45); border-radius: 999px; background: rgba(255, 194, 75, .08); }
+.hold svg { width: 34px; height: 34px; transform: rotate(-90deg); }
+.hold-track { fill: none; stroke: rgba(255, 194, 75, .2); stroke-width: 3; }
+.hold-ring { fill: none; stroke: var(--flood); stroke-width: 3; stroke-linecap: round; stroke-dasharray: 94.25; transition: stroke-dashoffset 1s linear; }
+.hold p { display: grid; line-height: 1.1; }
+.hold b { font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; color: var(--flood); }
+.hold span { font-size: 11px; color: var(--mist); }
+.hold.is-low { border-color: var(--alert); }
+.hold.is-low b { color: var(--alert); }
+.hold.is-low .hold-ring { stroke: var(--alert); }
+
+.steps { list-style: none; margin: 0; padding: 12px 22px; display: flex; gap: 6px; border-bottom: 1px solid var(--rule); overflow-x: auto; }
+.steps li { display: flex; align-items: center; gap: 7px; font-size: var(--t-sm); color: var(--mist-2); white-space: nowrap; flex: 1; }
+.steps li + li::before { content: ""; height: 1px; flex: 1; min-width: 10px; background: var(--rule-strong); margin-right: 4px; }
+.steps i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; border: 1px solid var(--rule-strong); flex: none; }
+.steps li.is-on { color: var(--chalk); font-weight: 600; }
+.steps li.is-on i { background: var(--flood); color: var(--flood-ink); border-color: var(--flood); }
+.steps li.is-done { color: var(--mist); }
+.steps li.is-done i { background: var(--turf); border-color: var(--turf); color: var(--ink-on-series); }
+
+.bk-h { font-size: var(--t-sm); font-weight: 600; color: var(--mist); margin-bottom: 10px; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.bk-h small { font-weight: 400; color: var(--mist-2); }
+.notice { border-radius: 12px; padding: 12px 14px; font-size: var(--t-sm); border: 1px solid; }
+.notice-warn { border-color: rgba(255, 140, 124, .5); background: rgba(255, 140, 124, .08); color: #FFC6BD; }
+.notice-ok { border-color: rgba(63, 191, 127, .45); background: rgba(63, 191, 127, .08); color: #B8EBCF; }
+.notice-info { border-color: var(--rule-strong); background: var(--night); color: var(--mist); }
+
+.slot-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; font-size: 12px; color: var(--mist-2); }
+.slot-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.slot-legend i { width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--rule-strong); background: var(--night); display: inline-block; }
+.slot-legend .lg-peak { background: var(--night); border-color: var(--flood); }
+.slot-legend .lg-taken { background: repeating-linear-gradient(135deg, transparent 0 3px, rgba(190, 210, 255, .3) 3px 4px); }
+.period + .period { margin-top: 16px; }
+.period h4 { font-size: 12px; color: var(--mist-2); font-weight: 600; margin-bottom: 8px; }
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.slot { position: relative; display: grid; text-align: left; padding: 9px 10px 8px; background: var(--night); border: 1px solid var(--rule-strong); border-radius: 11px; color: var(--chalk); transition: transform .2s var(--ease), background-color .2s, border-color .2s, box-shadow .25s; }
+.slot b { font-family: var(--display); font-size: 25px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.slot b i { font-style: normal; font-family: var(--body); font-size: 11px; font-weight: 600; color: var(--mist); margin-left: 3px; }
+.slot span { font-size: 12.5px; color: var(--mist); margin-top: 3px; font-variant-numeric: tabular-nums; }
+.slot.is-peak { border-color: rgba(255, 194, 75, .45); }
+.slot .tag { font-style: normal; } .slot .tag { position: absolute; top: 6px; right: 6px; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 4px; background: rgba(63, 191, 127, .18); color: var(--turf); }
+.slot:hover:not(:disabled) { border-color: var(--flood); transform: translateY(-2px); }
+.slot[aria-pressed=true] { background: var(--flood); border-color: var(--flood); color: var(--flood-ink); box-shadow: 0 0 0 4px rgba(255, 194, 75, .18), 0 10px 34px rgba(255, 194, 75, .38); }
+.slot[aria-pressed=true] b i, .slot[aria-pressed=true] span { color: var(--flood-ink); }
+.slot:disabled { cursor: not-allowed; color: var(--mist-2); background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(190, 210, 255, .05) 6px 12px), var(--night); border-color: var(--rule); }
+.slot:disabled b { text-decoration: line-through; text-decoration-thickness: 1px; }
+.slot.just-taken { animation: justTaken 1.2s var(--ease); }
+@keyframes justTaken { 0%, 60% { border-color: var(--alert); box-shadow: 0 0 0 4px rgba(255, 140, 124, .25); } }
+
+.stepper { display: inline-flex; align-items: center; border: 1px solid var(--rule-strong); border-radius: 999px; overflow: hidden; }
+.stepper button { width: 44px; height: 44px; background: var(--night); border: 0; font-size: 20px; color: var(--chalk); }
+.stepper button:hover { background: var(--night-3); }
+.stepper output { min-width: 52px; text-align: center; font-family: var(--display); font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.row-between { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.muted { color: var(--mist); font-size: var(--t-sm); }
+
+.addons { display: grid; gap: 8px; }
+.addon { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--night); color: var(--chalk); cursor: pointer; transition: border-color .2s, background-color .2s; }
+.addon:hover { border-color: var(--rule-strong); }
+.addon input { position: absolute; opacity: 0; pointer-events: none; }
+.addon .box { width: 22px; height: 22px; border-radius: 6px; border: 1.5px solid var(--mist-2); display: grid; place-items: center; transition: background-color .2s, border-color .2s; }
+.addon .box svg { width: 14px; height: 14px; stroke: var(--flood-ink); stroke-width: 3; fill: none; opacity: 0; transform: scale(.4); transition: opacity .2s, transform .25s var(--ease); }
+.addon input:checked + .box { background: var(--flood); border-color: var(--flood); }
+.addon input:checked + .box svg { opacity: 1; transform: none; }
+.addon input:focus-visible + .box { outline: 2px solid var(--flood); outline-offset: 2px; }
+.addon:has(input:checked) { border-color: rgba(255, 194, 75, .5); background: rgba(255, 194, 75, .05); }
+.addon-t { font-weight: 600; font-size: 15px; color: var(--chalk); }
+.addon-d { font-size: 12.5px; color: var(--mist); font-weight: 400; display: block; }
+.addon-p { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--chalk); }
+
+.split { border: 1px solid var(--rule); border-radius: 14px; padding: 16px; display: grid; gap: 14px; background: var(--night); }
+.share { display: flex; gap: 8px; align-items: center; }
+.share code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--body); font-size: 14px; background: var(--board); border: 1px solid var(--rule-strong); border-radius: 10px; padding: 10px 12px; color: var(--flood); user-select: all; }
+.bar { height: 8px; background: var(--board); border-radius: 999px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--turf); border-radius: 999px; transition: width .6s var(--ease); }
+.mates { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.mates li { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 999px; border: 1px solid var(--rule); font-size: 12.5px; color: var(--mist); transition: border-color .3s, color .3s, background-color .3s; }
+.mates li i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 700; background: var(--night-3); color: var(--chalk); }
+.mates li.paid { border-color: rgba(63, 191, 127, .5); color: var(--chalk); }
+.mates li.paid i { background: var(--turf); color: var(--ink-on-series); }
+.mates li.just { animation: bump .5s var(--ease); }
+
+.summary { list-style: none; margin: 0; padding: 0; border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+.summary li { display: flex; justify-content: space-between; gap: 16px; padding: 11px 14px; font-size: 14.5px; }
+.summary li + li { border-top: 1px solid var(--rule); }
+.summary li span:first-child { color: var(--mist); }
+.summary li span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.summary li.total { background: var(--night); font-weight: 700; font-size: 16px; }
+.summary li.total span:first-child { color: var(--chalk); }
+
+.choices { display: grid; gap: 8px; }
+.choice { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 13px 14px; border: 1px solid var(--rule-strong); border-radius: 12px; background: var(--night); cursor: pointer; color: var(--chalk); transition: border-color .2s, background-color .2s; }
+.choice input { position: absolute; opacity: 0; pointer-events: none; }
+.choice .dot { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--mist-2); display: grid; place-items: center; }
+.choice .dot::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--flood); transform: scale(0); transition: transform .25s var(--ease); }
+.choice input:checked + .dot { border-color: var(--flood); }
+.choice input:checked + .dot::after { transform: scale(1); }
+.choice input:focus-visible + .dot { outline: 2px solid var(--flood); outline-offset: 2px; }
+.choice:has(input:checked) { border-color: var(--flood); background: rgba(255, 194, 75, .06); }
+.choice-t { font-weight: 600; font-size: 15px; }
+.choice-d { display: block; font-size: 12.5px; color: var(--mist); font-weight: 400; }
+.choice-p { font-variant-numeric: tabular-nums; font-weight: 700; }
+.methods { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.method { display: grid; justify-items: center; gap: 6px; padding: 14px 8px; border: 1px solid var(--rule-strong); border-radius: 12px; background: var(--night); cursor: pointer; font-size: 14px; font-weight: 600; color: var(--chalk); text-align: center; transition: border-color .2s, background-color .2s; }
+.method input { position: absolute; opacity: 0; pointer-events: none; }
+.method svg { width: 26px; height: 26px; stroke: var(--mist); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.method:has(input:checked) { border-color: var(--flood); background: rgba(255, 194, 75, .06); }
+.method:has(input:checked) svg { stroke: var(--flood); }
+.method:has(input:focus-visible) { outline: 2px solid var(--flood); outline-offset: 2px; }
+.method small { font-size: 11.5px; color: var(--mist); font-weight: 400; }
+.spinner { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(43, 27, 0, .25); border-top-color: var(--flood-ink); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* match pass */
+.pass-wrap { perspective: 1200px; }
+.pass { position: relative; border-radius: 22px; overflow: hidden; background: radial-gradient(420px 220px at 85% 0%, rgba(255, 194, 75, .22), transparent 70%), linear-gradient(160deg, #1A3878, #0C1B42 70%); border: 1px solid var(--rule-strong); animation: passIn 1s var(--ease) both; transform-origin: 50% 100%; }
+@keyframes passIn { from { transform: rotateX(70deg) translateY(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+.pass::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, .16) 45%, transparent 60%); transform: translateX(-120%); animation: shine 1.6s .7s var(--ease) both; pointer-events: none; }
+@keyframes shine { to { transform: translateX(120%); } }
+.pass-top { padding: 22px 22px 18px; display: grid; gap: 4px; }
+.pass-turf { font-family: var(--display); font-size: 36px; font-weight: 800; text-transform: uppercase; line-height: .95; }
+.pass-where { color: var(--mist); font-size: var(--t-sm); }
+.pass-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.pass-grid dt { font-size: 11.5px; color: var(--mist-2); }
+.pass-grid dd { margin: 2px 0 0; font-family: var(--display); font-size: 23px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.pass-tear { position: relative; height: 0; border-top: 2px dashed rgba(190, 210, 255, .3); margin: 0 18px; }
+.pass-tear::before, .pass-tear::after { content: ""; position: absolute; top: -13px; width: 24px; height: 24px; border-radius: 50%; background: var(--night-2); }
+.pass-tear::before { left: -31px; } .pass-tear::after { right: -31px; }
+.pass-bot { display: flex; align-items: center; gap: 18px; padding: 18px 22px 22px; }
+.qr { background: #fff; border-radius: 12px; padding: 8px; width: 120px; height: 120px; flex: none; display: grid; place-items: center; }
+.qr svg, .qr img { width: 104px; height: 104px; display: block; }
+.qr-fallback { font-family: var(--display); color: #0A1733; font-size: 20px; text-align: center; }
+.pass-id { display: grid; gap: 4px; }
+.pass-id b { font-family: var(--display); font-size: 30px; letter-spacing: .04em; font-weight: 800; color: var(--flood); }
+.pass-id span { font-size: var(--t-sm); color: var(--mist); }
+.pass-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.pass-actions .btn { min-height: 40px; font-size: 14px; padding: 0 16px; }
+.confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+/* my bookings */
+.mb { border: 1px solid var(--rule); border-radius: 16px; padding: 16px; display: grid; gap: 12px; background: var(--night); }
+.mb.is-cancelled { opacity: .6; }
+.mb-top { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+.mb-name { font-family: var(--display); font-size: 26px; font-weight: 800; line-height: 1; }
+.mb-when { color: var(--mist); font-size: var(--t-sm); margin-top: 4px; }
+.st-ok { color: var(--turf); border-color: rgba(63, 191, 127, .45); }
+.st-x { color: var(--alert); border-color: rgba(255, 140, 124, .45); }
+.mb-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mb-actions .btn { min-height: 38px; font-size: 14px; padding: 0 14px; }
+.mb-confirm { display: grid; gap: 10px; }
+.mb-qr { display: flex; gap: 16px; align-items: center; }
+
+/* ---------- toasts & tooltip ---------- */
+.toasts { position: fixed; z-index: 90; left: max(16px, env(safe-area-inset-left, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; width: min(400px, calc(100% - 32px)); pointer-events: none; }
+.toast { display: flex; gap: 10px; align-items: start; background: var(--night-3); border: 1px solid var(--rule-strong); border-radius: 14px; padding: 12px 14px; font-size: 14px; line-height: 1.4; box-shadow: 0 16px 40px rgba(0, 0, 0, .4); animation: toastIn .45s var(--ease) both; pointer-events: auto; }
+.toast.out { animation: toastOut .35s ease both; }
+.toast i { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex: none; background: var(--flood); }
+.toast.live i { background: var(--turf); box-shadow: 0 0 0 0 rgba(63, 191, 127, .6); animation: livePulseG 1.6s infinite; }
+.toast.ok i { background: var(--turf); }
+.toast.warn i { background: var(--alert); }
+@keyframes livePulseG { 70% { box-shadow: 0 0 0 7px rgba(63, 191, 127, 0); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(14px) scale(.97); } }
+@keyframes toastOut { to { opacity: 0; transform: translateX(-20px); } }
+.tip { position: fixed; z-index: 95; pointer-events: none; background: var(--board); border: 1px solid var(--rule-strong); border-radius: 10px; padding: 9px 12px; font-size: 13px; line-height: 1.45; max-width: 260px; box-shadow: 0 12px 30px rgba(0, 0, 0, .45); color: var(--chalk); }
+.tip b { display: block; font-weight: 700; }
+.tip span { color: var(--mist); }
+.tip .tip-row { display: flex; justify-content: space-between; gap: 14px; font-variant-numeric: tabular-nums; }
+.tip .tip-row i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; }
+
+/* ---------- owner dashboard ---------- */
+.owner { padding-top: 40px; }
+.owner .wrap { display: grid; gap: 20px; }
+.owner-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px 24px; }
+.owner-who { margin-bottom: 10px; }
+.pill-demo { color: var(--flood); border-color: rgba(255, 194, 75, .45); }
+.owner-pick { min-width: 240px; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--rule); border-radius: 18px; background: var(--night-2); overflow: hidden; }
+.kpi { padding: 18px 20px; display: grid; gap: 4px; min-width: 0; }
+.kpi + .kpi { border-left: 1px solid var(--rule); }
+.kpi-l { font-size: var(--t-sm); color: var(--mist); }
+.kpi-v { font-family: var(--display); font-size: 42px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi-d { font-size: 12.5px; color: var(--mist-2); display: flex; align-items: center; gap: 6px; }
+.up { color: var(--turf); } .down { color: var(--alert); }
+.kpi-v.tick { animation: tick .6s var(--ease); }
+@keyframes tick { 30% { color: var(--flood); transform: translateY(-3px); } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: var(--mist); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.sw-online { background: var(--s-online); }
+.sw-walkin { background: var(--s-walkin); }
+.sw-mine { background: var(--s-online); box-shadow: 0 0 0 2px var(--chalk); }
+
+.tl-title { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.tl-scroll { overflow-x: auto; padding-bottom: 6px; }
+.tl { min-width: 780px; display: grid; grid-template-columns: 92px minmax(0, 1fr); column-gap: 12px; }
+.tl-labels { display: grid; grid-auto-rows: 58px; row-gap: 8px; padding-top: 26px; }
+.tl-labels div { display: grid; align-content: center; font-weight: 600; font-size: 14px; line-height: 1.2; }
+.tl-labels small { color: var(--mist-2); font-weight: 400; font-size: 12px; }
+.tl-right { position: relative; }
+.tl-hours { position: relative; height: 26px; }
+.tl-hours span { position: absolute; top: 0; transform: translateX(-50%); font-size: 11.5px; color: var(--mist-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.tl-hours span:first-child { transform: none; }
+.tl-tracks { display: grid; grid-auto-rows: 58px; row-gap: 8px; }
+.tl-track { position: relative; border-radius: 10px; background-color: var(--night); background-image: repeating-linear-gradient(90deg, rgba(190, 210, 255, .07) 0 1px, transparent 1px calc(100% / 20)); }
+.tl-track .peak-zone { position: absolute; top: 0; bottom: 0; background: rgba(255, 194, 75, .04); border-inline: 1px dashed rgba(255, 194, 75, .18); pointer-events: none; }
+.tl-b { position: absolute; top: 5px; bottom: 5px; border: 0; border-radius: 8px; padding: 5px 8px; text-align: left; overflow: hidden; display: grid; align-content: center; font-size: 12px; line-height: 1.2; color: var(--ink-on-series); min-width: 0; transition: transform .2s var(--ease), filter .2s; }
+.tl-b b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tl-b span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .8; }
+.tl-b:hover, .tl-b:focus-visible { transform: translateY(-2px); filter: brightness(1.12); z-index: 2; }
+.tl-b.online { background: var(--s-online); }
+.tl-b.walkin { background: var(--s-walkin); }
+.tl-b.mine { box-shadow: 0 0 0 2px var(--chalk); animation: mineGlow 2s ease-in-out infinite; }
+.tl-b.fresh { animation: fresh 1.4s var(--ease); }
+@keyframes mineGlow { 50% { box-shadow: 0 0 0 2px var(--chalk), 0 0 18px rgba(255, 194, 75, .6); } }
+@keyframes fresh { from { transform: scaleX(0); transform-origin: left; } }
+.tl-now { position: absolute; top: 20px; bottom: 0; width: 2px; background: var(--alert); pointer-events: none; z-index: 3; }
+.tl-now::before { content: "Now"; position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 700; color: var(--ink-on-series); background: var(--alert); padding: 0 6px; border-radius: 4px; }
+
+.grid-2 { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 20px; }
+.grid-2b { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+.chart { position: relative; min-height: 250px; }
+.chart svg { display: block; overflow: visible; }
+.chart text { fill: var(--mist-2); font-size: 11.5px; font-family: var(--body); font-variant-numeric: tabular-nums; }
+.chart .grid line { stroke: var(--rule); }
+.chart .hit { fill: transparent; cursor: default; }
+.chart .hit:hover + g rect, .chart .bar-g.is-hover rect { filter: brightness(1.2); }
+.chart .today-l { fill: var(--chalk); font-weight: 700; }
+
+.heat-scroll { overflow-x: auto; }
+.heat { min-width: 0; display: grid; grid-template-columns: 34px repeat(20, minmax(0, 1fr)); gap: 3px; }
+@media (max-width: 560px) { .heat { min-width: 470px; } }
+.heat .hl { font-size: 11.5px; color: var(--mist-2); display: flex; align-items: center; }
+.heat .hc { aspect-ratio: 1 / 1; border-radius: 4px; background: var(--flood); border: 0; padding: 0; min-width: 0; }
+.heat .hc:hover, .heat .hc:focus-visible { outline: 2px solid var(--chalk); outline-offset: 1px; }
+.heat .hx { font-size: 10.5px; color: var(--mist-2); text-align: left; white-space: nowrap; overflow: visible; }
+.heat-scale { display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 12px; color: var(--mist-2); }
+.heat-scale i { flex: 1; max-width: 200px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, rgba(255, 194, 75, .07), var(--flood)); }
+
+.walkin, .pricing { display: grid; gap: 14px; align-content: start; }
+.rule { gap: 8px; }
+.rule-row { display: flex; align-items: center; gap: 14px; }
+.rule-row output { min-width: 74px; text-align: right; font-family: var(--display); font-size: 24px; font-weight: 700; color: var(--chalk); font-variant-numeric: tabular-nums; }
+.rule-switch { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: var(--t-sm); color: var(--mist); font-weight: 500; }
+.preview { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 4px; }
+.preview caption { text-align: left; font-size: 12px; color: var(--mist-2); padding-bottom: 6px; }
+.preview td { padding: 9px 0; border-top: 1px solid var(--rule); }
+.preview td:last-child { text-align: right; font-family: var(--display); font-weight: 700; font-size: 21px; font-variant-numeric: tabular-nums; }
+.preview td.chg { color: var(--flood); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 1080px) {
+  .fx { grid-template-columns: 150px minmax(0, 1fr) 140px; }
+  .fx-slots { grid-column: 2 / -1; }
+  .fx-cta { grid-row: 1; grid-column: 3; }
+}
+@media (max-width: 900px) {
+  .hero-inner { grid-template-columns: minmax(0, 1fr); gap: 0; padding-block: 28px 8px; }
+  .hero-copy { padding-block: 8px 0; }
+  .hero-stage { height: 400px; margin-left: calc(-1 * var(--gutter)); }
+  .open-now { left: var(--gutter); }
+  .squad-layout, .grid-2, .grid-2b { grid-template-columns: minmax(0, 1fr); }
+  .post-form { position: static; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi:nth-child(3) { border-left: 0; }
+  .kpi:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .nav-links > a[data-player-link] { display: none; }
+}
+@media (max-width: 680px) {
+  :root { --nav-h: 58px; }
+  .hide-sm { display: none; }
+  .show-sm { display: inline; }
+  .ask-field { flex-basis: 100%; }
+  .dr-pane .seg { display: flex; }
+  .section { padding-block: 52px; }
+  .brand { font-size: 23px; }
+  .nav-mine, .nav-links > a { padding: 8px 10px; font-size: 14px; }
+  .fx { grid-template-columns: 96px minmax(0, 1fr); gap: 14px 16px; padding-block: 18px; }
+  .fx-slots { grid-column: 1 / -1; }
+  .fx-cta { grid-column: 1 / -1; grid-row: auto; display: flex; justify-content: space-between; align-items: center; text-align: left; }
+  .fx-name { font-size: 26px; }
+  .feats { display: none; }
+  .sq { grid-template-columns: 76px minmax(0, 1fr); gap: 10px 14px; }
+  .sq-need { grid-column: 2; }
+  .sq .btn { grid-column: 2; justify-self: start; }
+  .sq-time b { font-size: 28px; }
+  .ask { flex-wrap: wrap; }
+  .ask .btn { width: 100%; min-height: 48px; }
+  .f-group, .f-price { width: 100%; }
+  .f-group select { min-width: 0; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; padding: 8px 6px; }
+  .hero-stage { height: 340px; }
+  .sb { top: 10px; padding: 8px 12px 10px; }
+  .sb-score { font-size: 28px; }
+  .sb-row { gap: 8px; font-size: 12px; }
+  .open-n { font-size: 34px; }
+  .dr-title { font-size: 27px; }
+  .dr-head, .dr-body, .dr-foot, .steps { padding-left: 16px; padding-right: 16px; }
+  .steps li { font-size: 12px; }
+  .steps li:not(.is-on) span { display: none; }
+  .pass-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pass-turf { font-size: 30px; }
+  .methods { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+  .kpi-v { font-size: 34px; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .foot-credit { margin-left: 0; }
+  .band-title { font-size: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .001ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
+
+</style>
 </head>
 <body>
   <a class="skip" href="#pitches">Skip to pitches</a>
@@ -31,7 +654,7 @@
         <button class="nav-mine" id="open-mine" type="button">
           <span class="hide-sm">My bookings</span><span class="show-sm">Bookings</span> <span class="badge" id="mine-count" hidden>0</span>
         </button>
-        <a class="nav-switch" id="view-switch" href="#owner"><span id="view-switch-l">Owner</span><span class="hide-sm"> view</span></a>
+        <a class="nav-switch" id="view-switch" href="#owner"><span id="view-switch-l">Owner</span><span class="hide-sm">&nbsp;view</span></a>
       </nav>
     </div>
   </header>
@@ -364,9 +987,2162 @@
   <div class="tip" id="tip" role="tooltip" hidden></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
-  <script src="js/data.js"></script>
-  <script src="js/pitch3d.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/owner.js"></script>
+  <script>
+/* =========================================================
+   Floodlit — demo data layer
+   Fictional turfs, seeded availability, pricing rules,
+   and a tiny event bus shared by the player and owner views.
+   ========================================================= */
+window.FL = window.FL || {};
+
+(function (FL) {
+  'use strict';
+
+  /* ---------- tiny event bus ---------- */
+  FL._handlers = {};
+  FL.on = function (evt, fn) { (FL._handlers[evt] = FL._handlers[evt] || []).push(fn); };
+  FL.emit = function (evt, detail) { (FL._handlers[evt] || []).forEach(function (fn) { fn(detail); }); };
+
+  /* ---------- seeded random (same numbers every visit) ---------- */
+  function hashStr(s) {
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  FL.rng = function (seed) { return mulberry32(hashStr(String(seed))); };
+  FL.pick = function (arr, r) { return arr[Math.floor((r || Math.random)() * arr.length)]; };
+
+  /* ---------- opening hours (minutes from midnight) ---------- */
+  FL.OPEN = 6 * 60;    // 6:00 AM
+  FL.CLOSE = 26 * 60;  // 2:00 AM next day
+
+  /* ---------- fictional turfs ---------- */
+  FL.turfs = [
+    {
+      id: 'skydeck', name: 'Sky Deck Arena', area: 'Bashundhara',
+      blurb: 'Rooftop pitches with a city view, open till 2 AM',
+      base: 2400, rating: 4.8, reviews: 412, busy: 0.62,
+      rooftop: true, indoor: false,
+      features: ['Floodlit', 'Rooftop', 'Changing rooms', 'Café'],
+      stripes: ['#1E774B', '#238656'], apron: '#0E1E36',
+      pitches: [{ id: 'A', name: 'Pitch A', size: 5 }, { id: 'B', name: 'Pitch B', size: 7 }]
+    },
+    {
+      id: 'lakeside', name: 'Lakeside Five', area: 'Dhanmondi',
+      blurb: 'Two caged 5-a-side pitches a short walk from the lake',
+      base: 2000, rating: 4.6, reviews: 288, busy: 0.7,
+      rooftop: false, indoor: false,
+      features: ['Floodlit', 'Showers', 'Prayer room'],
+      stripes: ['#1B6E45', '#207C4F'], apron: '#0F2034',
+      pitches: [{ id: 'A', name: 'Pitch A', size: 5 }, { id: 'B', name: 'Pitch B', size: 5 }]
+    },
+    {
+      id: 'glasshouse', name: 'Glasshouse Gulshan', area: 'Gulshan',
+      blurb: 'Air-conditioned indoor pitch with pro-grade turf',
+      base: 3500, rating: 4.9, reviews: 167, busy: 0.55,
+      rooftop: false, indoor: true,
+      features: ['Indoor AC', 'Changing rooms', 'Showers', 'Parking'],
+      stripes: ['#26845A', '#2B9364'], apron: '#13243F',
+      pitches: [{ id: 'A', name: 'Main pitch', size: 5 }]
+    },
+    {
+      id: 'pallabi', name: 'Pallabi Night Ground', area: 'Mirpur',
+      blurb: 'Three pitches, cheapest late slots in Mirpur',
+      base: 1600, rating: 4.4, reviews: 531, busy: 0.78,
+      rooftop: false, indoor: false,
+      features: ['Floodlit', 'Parking', 'Prayer room'],
+      stripes: ['#1A6842', '#1F764C'], apron: '#0E1C32',
+      pitches: [{ id: 'A', name: 'Pitch A', size: 5 }, { id: 'B', name: 'Pitch B', size: 5 }, { id: 'C', name: 'Pitch C', size: 7 }]
+    },
+    {
+      id: 'cage', name: 'The Cage', area: 'Mohammadpur',
+      blurb: 'Tight, fast 5-a-side cage plus a 7-a-side ground',
+      base: 1800, rating: 4.5, reviews: 309, busy: 0.66,
+      rooftop: false, indoor: false,
+      features: ['Floodlit', 'Café'],
+      stripes: ['#1C7047', '#217E51'], apron: '#0F1F36',
+      pitches: [{ id: 'A', name: 'Cage', size: 5 }, { id: 'B', name: 'Ground', size: 7 }]
+    },
+    {
+      id: 'northgate', name: 'North Gate Turf', area: 'Uttara',
+      blurb: 'Rooftop 7-a-side above a shopping centre',
+      base: 2200, rating: 4.7, reviews: 224, busy: 0.6,
+      rooftop: true, indoor: false,
+      features: ['Floodlit', 'Rooftop', 'Parking', 'Changing rooms'],
+      stripes: ['#1D734A', '#228155'], apron: '#0E1E36',
+      pitches: [{ id: 'A', name: 'Pitch A', size: 7 }, { id: 'B', name: 'Pitch B', size: 5 }]
+    }
+  ];
+  FL.AREAS = ['Bashundhara', 'Dhanmondi', 'Gulshan', 'Mirpur', 'Mohammadpur', 'Uttara'];
+  FL.turfById = function (id) { return FL.turfs.find(function (t) { return t.id === id; }); };
+  FL.pitchOf = function (turf, pid) { return turf.pitches.find(function (p) { return p.id === pid; }); };
+
+  FL.TEAMS = ['Night Owls FC', 'Late Shift FC', 'Office XI', 'Block C Ballers', 'Uttara United', 'Friday Five',
+    'Rooftop Rangers', 'Mirpur Mavericks', 'Code & Kick', 'Dhanmondi Dynamos', 'Lakeside Legends',
+    'Bashundhara Blues', 'Gulshan Galacticos', 'Sunday League Saints', 'Back Post Boys', 'The Overlappers'];
+
+  /* ---------- pricing rules (owners can edit these live) ---------- */
+  function defaultRules(t) {
+    return { base: t.base, peak: 1.3, late: 1.1, weekend: 15, morningDeal: t.id === 'pallabi' };
+  }
+  FL.defaultPricing = {};
+  FL.pricing = {};
+  FL.turfs.forEach(function (t) { FL.defaultPricing[t.id] = defaultRules(t); FL.pricing[t.id] = defaultRules(t); });
+
+  /* ---------- dates ---------- */
+  FL.dateFor = function (off) { var d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + off); return d; };
+  FL.keyOf = function (d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  };
+  FL.dateKey = function (off) { return FL.keyOf(FL.dateFor(off)); };
+  FL.fromKey = function (k) { var p = k.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2], 12); };
+  FL.offsetOf = function (k) { return Math.round((FL.fromKey(k) - FL.dateFor(0)) / 864e5); };
+  // Bangladesh weekend: Friday and Saturday
+  FL.isWeekend = function (k) { var g = FL.fromKey(k).getDay(); return g === 5 || g === 6; };
+  FL.nowMin = function () { var n = new Date(); return n.getHours() * 60 + n.getMinutes(); };
+
+  /* ---------- formatting ---------- */
+  FL.money = function (n) { return '৳' + Math.round(n).toLocaleString('en-IN'); };
+  FL.clock = function (m) {
+    var h = Math.floor(m / 60) % 24, mm = m % 60;
+    return { t: (h % 12 || 12) + ':' + String(mm).padStart(2, '0'), ap: h >= 12 ? 'PM' : 'AM' };
+  };
+  FL.time = function (m) { var c = FL.clock(m); return c.t + ' ' + c.ap; };
+  FL.range = function (s, e) {
+    var a = FL.clock(s), b = FL.clock(e);
+    return a.ap === b.ap ? a.t + '–' + b.t + ' ' + b.ap : a.t + ' ' + a.ap + '–' + b.t + ' ' + b.ap;
+  };
+  FL.dayLabel = function (off) {
+    if (off === 0) return 'Today';
+    if (off === 1) return 'Tomorrow';
+    return FL.dateFor(off).toLocaleDateString('en-GB', { weekday: 'long' });
+  };
+  FL.dateShort = function (k) { return FL.fromKey(k).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); };
+  FL.durLabel = function (d) { return d === 60 ? '1 hour' : d === 90 ? '90 min' : (d / 60) + ' hours'; };
+
+  /* ---------- price for a slot ---------- */
+  FL.priceInfo = function (turfId, pitch, key, start, dur, rules) {
+    var r = rules || FL.pricing[turfId];
+    var h = Math.floor(start / 60);
+    var m = 1, peak = false, late = false, deal = false;
+    if (h >= 17 && h < 23) { m *= r.peak; peak = r.peak > 1; }
+    else if (h >= 23) { m *= r.late; late = r.late > 1; }
+    if (r.morningDeal && h < 12) { m *= 0.8; deal = true; }
+    var wknd = FL.isWeekend(key);
+    if (wknd) m *= 1 + r.weekend / 100;
+    var sizeF = pitch.size === 7 ? 1.5 : 1;
+    var price = Math.round((r.base * sizeF * (dur / 60) * m) / 50) * 50;
+    return { price: price, peak: peak, late: late, deal: deal, weekend: wknd && r.weekend > 0 };
+  };
+
+  /* ---------- availability ---------- */
+  var seedCache = {};
+  FL.extra = {};   // bookings added during this visit: live activity, walk-ins, your bookings
+  FL.holds = [];   // slots held during checkout
+  FL.slotKey = function (turfId, pitchId, key) { return turfId + '|' + pitchId + '|' + key; };
+
+  FL.seeded = function (turf, pitch, key) {
+    var k = FL.slotKey(turf.id, pitch.id, key);
+    if (seedCache[k]) return seedCache[k];
+    var rng = FL.rng(k);
+    var wk = FL.isWeekend(key) ? 1.2 : 1;
+    var out = [], t = FL.OPEN;
+    while (t < FL.CLOSE) {
+      var h = t / 60;
+      var base = h < 9 ? 0.45 : h < 12 ? 0.25 : h < 16 ? 0.18 : h < 17 ? 0.4 : h < 23 ? 0.74 : 0.6;
+      var p = Math.min(0.9, base * turf.busy * wk);
+      if (rng() < p) {
+        var roll = rng();
+        var dur = roll < 0.5 ? 60 : roll < 0.8 ? 90 : 120;
+        if (t + dur > FL.CLOSE) dur = FL.CLOSE - t;
+        if (dur < 60) break;
+        var b = {
+          id: 'S' + Math.floor(rng() * 1e6).toString(36).toUpperCase(),
+          start: t, end: t + dur, team: FL.pick(FL.TEAMS, rng),
+          source: rng() < 0.76 ? 'online' : 'walkin', status: 'confirmed'
+        };
+        b.price = FL.priceInfo(turf.id, pitch, key, t, dur, FL.defaultPricing[turf.id]).price;
+        b.paid = b.source === 'online' ? (rng() < 0.6 ? 'deposit' : 'full') : 'cash';
+        out.push(b);
+        t += dur;
+        // after a 90-minute game the next one usually waits for the hour
+        if (t % 60 === 30 && rng() < 0.6) t += 30;
+      } else {
+        t += t % 60 === 30 ? 30 : 60;
+      }
+    }
+    seedCache[k] = out;
+    return out;
+  };
+
+  FL.busy = function (turfId, pitchId, key) {
+    var turf = FL.turfById(turfId), pitch = FL.pitchOf(turf, pitchId);
+    var extra = (FL.extra[FL.slotKey(turfId, pitchId, key)] || []).filter(function (b) { return b.status !== 'cancelled'; });
+    return FL.seeded(turf, pitch, key).concat(extra);
+  };
+
+  FL.addBooking = function (turfId, pitchId, key, b) {
+    var k = FL.slotKey(turfId, pitchId, key);
+    (FL.extra[k] = FL.extra[k] || []).push(b);
+    return b;
+  };
+
+  function overlaps(aS, aE, bS, bE) { return aS < bE && bS < aE; }
+
+  // 'free' | 'taken' | 'past' | 'closed' | 'held'
+  FL.slotState = function (turfId, pitchId, key, start, dur, ignoreHoldId) {
+    var end = start + dur;
+    if (end > FL.CLOSE) return 'closed';
+    if (key === FL.dateKey(0) && start < FL.nowMin() + 10) return 'past';
+    var busy = FL.busy(turfId, pitchId, key);
+    for (var i = 0; i < busy.length; i++) if (overlaps(start, end, busy[i].start, busy[i].end)) return 'taken';
+    for (var j = 0; j < FL.holds.length; j++) {
+      var h = FL.holds[j];
+      if (h.id !== ignoreHoldId && h.turfId === turfId && h.pitchId === pitchId && h.key === key && overlaps(start, end, h.start, h.end)) return 'held';
+    }
+    return 'free';
+  };
+  FL.isFree = function (turfId, pitchId, key, start, dur) { return FL.slotState(turfId, pitchId, key, start, dur) === 'free'; };
+
+  /* ---------- squad board (teams short on players) ---------- */
+  FL.squadSeed = [
+    { team: 'Late Shift FC', turfId: 'pallabi', start: 21 * 60 + 30, need: 2, joined: 0, level: 'Casual', note: 'One defender and anyone who can run.' },
+    { team: 'Code & Kick', turfId: 'skydeck', start: 20 * 60, need: 3, joined: 1, level: 'Intermediate', note: 'Office team. Friendly, but we keep score.' },
+    { team: 'Dhanmondi Dynamos', turfId: 'lakeside', start: 22 * 60, need: 1, joined: 0, level: 'Competitive', note: 'Looking for a keeper. Gloves provided.' },
+    { team: 'Uttara United', turfId: 'northgate', start: 19 * 60, need: 4, joined: 2, level: 'Casual', note: '7-a-side, rolling subs welcome.' },
+    { team: 'Glasshouse Regulars', turfId: 'glasshouse', start: 23 * 60, need: 2, joined: 0, level: 'Intermediate', note: 'Late game after work, AC pitch.' }
+  ];
+
+  FL.PLAYERS = ['You', 'Rafi', 'Tanvir', 'Sakib', 'Nayeem', 'Arif', 'Shuvo', 'Imran', 'Fahim', 'Rakib',
+    'Mahin', 'Zubair', 'Ashik', 'Tamim'];
+})(window.FL);
+
+</script>
+  <script>
+/* =========================================================
+   Floodlit — hero pitch
+   A five-a-side pitch drawn in pseudo-3D on a canvas.
+   On load the four floodlights flicker on, the chalk lines draw
+   themselves, then a small match plays out. Move the mouse to tilt.
+   ========================================================= */
+(function (FL) {
+  'use strict';
+
+  var canvas = document.getElementById('pitch3d');
+  if (!canvas || !canvas.getContext) return;
+  var ctx = canvas.getContext('2d');
+  var stage = document.getElementById('hero-stage');
+  var hero = document.getElementById('play');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* world units are metres; pitch is 40 x 25 */
+  var HL = 20, HW = 12.5;
+  var TOWER_H = 14;
+  var towers = [[-23.5, -16], [23.5, -16], [-23.5, 16], [23.5, 16]].map(function (p, i) {
+    return { x: p[0], z: p[1], on: 0.45 + i * 0.32, level: 0 };
+  });
+
+  var W = 0, H = 0, DPR = 1, focal = 600, DIST = 64, cx0 = 0, cy0 = 0;
+  var BASE_YAW = -0.5, BASE_EL = 0.62;
+  var cam = { yaw: BASE_YAW, el: BASE_EL, ty: BASE_YAW, te: BASE_EL };
+  var cyw, syw, cel, sel;
+
+  function resize() {
+    var r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    var narrow = W < 560;
+    focal = Math.min(W * (narrow ? 1.1 : 1.08), H * 1.5);
+    cx0 = W * (narrow ? 0.5 : 0.52);
+    cy0 = H * 0.55;
+    if (reduce || !running) draw(lastT);
+  }
+
+  function setCam() { cyw = Math.cos(cam.yaw); syw = Math.sin(cam.yaw); cel = Math.cos(cam.el); sel = Math.sin(cam.el); }
+
+  // project world (x, y up, z) to screen [sx, sy, scale, depth]
+  function P(x, y, z) {
+    var rx = x * cyw - z * syw, rz = x * syw + z * cyw;
+    var ry = y * cel + rz * sel, rz2 = rz * cel - y * sel;
+    var d = rz2 + DIST, s = focal / d;
+    return [cx0 + rx * s, cy0 - ry * s, s, d];
+  }
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function mix(c1, c2, t) {
+    var a = parseInt(c1.slice(1), 16), b = parseInt(c2.slice(1), 16);
+    var r = Math.round(lerp(a >> 16, b >> 16, t)), g = Math.round(lerp((a >> 8) & 255, (b >> 8) & 255, t)), bl = Math.round(lerp(a & 255, b & 255, t));
+    return 'rgb(' + r + ',' + g + ',' + bl + ')';
+  }
+
+  function poly(pts, fill, stroke, lw) {
+    ctx.beginPath();
+    for (var i = 0; i < pts.length; i++) {
+      var p = P(pts[i][0], pts[i][1], pts[i][2]);
+      if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]);
+    }
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1; ctx.stroke(); }
+  }
+
+  /* ---------- chalk lines as one long path (for the draw-on effect) ---------- */
+  var segs = [];
+  (function buildLines() {
+    function add(a, b) { segs.push([a, b]); }
+    var corners = [[-HL, -HW], [HL, -HW], [HL, HW], [-HL, HW]];
+    for (var i = 0; i < 4; i++) add(corners[i], corners[(i + 1) % 4]);
+    add([0, -HW], [0, HW]);
+    var N = 40, k, a0, a1;
+    for (k = 0; k < N; k++) {
+      a0 = k / N * Math.PI * 2; a1 = (k + 1) / N * Math.PI * 2;
+      add([Math.cos(a0) * 3.5, Math.sin(a0) * 3.5], [Math.cos(a1) * 3.5, Math.sin(a1) * 3.5]);
+    }
+    [-1, 1].forEach(function (side) {
+      for (k = 0; k < 24; k++) {
+        a0 = -Math.PI / 2 + k / 24 * Math.PI; a1 = -Math.PI / 2 + (k + 1) / 24 * Math.PI;
+        add([side * (HL - Math.cos(a0) * 6), Math.sin(a0) * 6], [side * (HL - Math.cos(a1) * 6), Math.sin(a1) * 6]);
+      }
+    });
+  })();
+  var segLen = segs.map(function (s) { return Math.hypot(s[1][0] - s[0][0], s[1][1] - s[0][1]); });
+  var totalLen = segLen.reduce(function (a, b) { return a + b; }, 0);
+
+  /* ---------- players and ball ---------- */
+  var TEAM = [
+    { color: '#FFC24B', dark: '#B9821F', dir: 1 },
+    { color: '#8CCBFF', dark: '#4C86BC', dir: -1 }
+  ];
+  var FORM = [[-17.5, 0], [-10, -5.5], [-10, 5.5], [-2, -4.5], [2.5, 4]];
+  var players = [];
+  [0, 1].forEach(function (team) {
+    FORM.forEach(function (f, i) {
+      var x = team === 0 ? f[0] : -f[0], z = team === 0 ? f[1] : -f[1];
+      players.push({ team: team, gk: i === 0, bx: x, bz: z, x: x, z: z, vx: 0, vz: 0, tx: x, tz: z, phase: Math.random() * 6 });
+    });
+  });
+  var rnd = FL && FL.rng ? FL.rng('hero-match') : Math.random;
+  var ball = { x: 0, y: 0, z: 0, owner: players[3], flying: false, u: 0, dur: 1, from: null, to: null, target: null, shot: false, hold: 1.4, pause: 0 };
+  var score = [0, 0];
+  var sbEl = document.getElementById('scoreboard');
+  var scoreEl = document.getElementById('sb-score');
+
+  function teammates(p) { return players.filter(function (q) { return q.team === p.team && q !== p; }); }
+  function nearest(list, x, z) {
+    var best = null, bd = 1e9;
+    list.forEach(function (q) { var d = (q.x - x) * (q.x - x) + (q.z - z) * (q.z - z); if (d < bd) { bd = d; best = q; } });
+    return best;
+  }
+
+  function kick(toX, toZ, target, shot) {
+    ball.flying = true; ball.u = 0; ball.shot = shot; ball.target = target;
+    ball.from = { x: ball.x, z: ball.z }; ball.to = { x: toX, z: toZ };
+    var d = Math.hypot(toX - ball.x, toZ - ball.z);
+    ball.dur = Math.max(0.35, d / (shot ? 22 : 13));
+    ball.lift = shot ? Math.min(1.6, d * 0.08) : (d > 12 ? Math.min(3, d * 0.16) : 0.25);
+    ball.owner = null;
+    if (target) { target.tx = toX; target.tz = toZ; }
+  }
+
+  function decide() {
+    var o = ball.owner, dir = TEAM[o.team].dir;
+    if (!o.gk && o.x * dir > 8 && rnd() < 0.5) {
+      kick(dir * (HL + 0.8), (rnd() - 0.5) * 4, null, true);
+      return;
+    }
+    var mates = teammates(o).filter(function (q) { return !q.gk || rnd() < 0.15; });
+    var t = mates[Math.floor(rnd() * mates.length)];
+    var tx = t.x + dir * (1 + rnd() * 3), tz = t.z + (rnd() - 0.5) * 3;
+    if (rnd() < 0.2) {
+      var opp = players.filter(function (q) { return q.team !== o.team && !q.gk; });
+      t = nearest(opp, tx, tz);
+    }
+    kick(Math.max(-HL + 1, Math.min(HL - 1, tx)), Math.max(-HW + 1, Math.min(HW - 1, tz)), t, false);
+  }
+
+  function goal(team) {
+    score[team]++;
+    if (scoreEl) scoreEl.textContent = score[0] + '–' + score[1];
+    if (sbEl) { sbEl.classList.remove('is-goal'); void sbEl.offsetWidth; sbEl.classList.add('is-goal'); }
+    flash = 1;
+  }
+  var flash = 0;
+
+  function update(dt) {
+    // ball
+    if (ball.pause > 0) {
+      ball.pause -= dt;
+      if (ball.pause <= 0) {
+        ball.x = 0; ball.z = 0; ball.y = 0;
+        var kickoffTeam = ball.nextTeam;
+        ball.owner = players.filter(function (q) { return q.team === kickoffTeam && !q.gk; })[2];
+        ball.hold = 1.2;
+      }
+    } else if (ball.flying) {
+      ball.u += dt / ball.dur;
+      var u = Math.min(1, ball.u);
+      var e = 1 - Math.pow(1 - u, 1.6);
+      ball.x = lerp(ball.from.x, ball.to.x, e);
+      ball.z = lerp(ball.from.z, ball.to.z, e);
+      ball.y = Math.sin(Math.PI * u) * ball.lift + 0.11;
+      if (u >= 1) {
+        ball.flying = false; ball.y = 0.11;
+        if (ball.shot) {
+          var attacking = ball.to.x > 0 ? 0 : 1;
+          var keeper = players.find(function (q) { return q.gk && q.team !== attacking; });
+          if (Math.abs(ball.to.z) < 2.4 && rnd() < 0.42) {
+            goal(attacking);
+            ball.pause = 1.6; ball.nextTeam = 1 - attacking; ball.owner = null;
+          } else {
+            ball.owner = keeper; ball.x = keeper.x; ball.z = keeper.z; ball.hold = 1.1;
+          }
+        } else {
+          ball.owner = ball.target || nearest(players, ball.x, ball.z);
+          ball.hold = 0.5 + rnd() * 0.9;
+        }
+      }
+    } else if (ball.owner) {
+      var o = ball.owner;
+      ball.x = o.x + TEAM[o.team].dir * 0.55; ball.z = o.z; ball.y = 0.11;
+      ball.hold -= dt;
+      if (ball.hold <= 0) decide();
+    }
+
+    // players
+    var poss = ball.owner ? ball.owner.team : -1;
+    var chasers = [0, 1].map(function (team) {
+      if (team === poss) return null;
+      return nearest(players.filter(function (q) { return q.team === team && !q.gk; }), ball.x, ball.z);
+    });
+    players.forEach(function (p) {
+      var dir = TEAM[p.team].dir;
+      if (p.gk) {
+        p.tx = p.bx; p.tz = Math.max(-2.2, Math.min(2.2, ball.z * 0.35));
+      } else if (p === ball.owner) {
+        p.tx = p.x + dir * 2.2; p.tz = p.z + Math.sin(p.phase) * 1.2;
+      } else if (p === chasers[p.team] || (ball.flying && p === ball.target)) {
+        if (!(ball.flying && p === ball.target)) { p.tx = ball.x; p.tz = ball.z; }
+      } else {
+        var shift = ball.x * 0.55 + (poss === p.team ? dir * 3 : -dir * 2);
+        p.tx = p.bx + shift + Math.sin(p.phase * 0.7) * 1.5;
+        p.tz = p.bz + (ball.z - p.bz) * 0.22 + Math.cos(p.phase * 0.9) * 1.2;
+      }
+      p.phase += dt;
+      var dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
+      var speed = p === ball.owner ? 3.2 : 5.2;
+      var vx = d > 0.05 ? dx / d * Math.min(speed, d * 2.2) : 0, vz = d > 0.05 ? dz / d * Math.min(speed, d * 2.2) : 0;
+      p.vx = lerp(p.vx, vx, Math.min(1, dt * 4)); p.vz = lerp(p.vz, vz, Math.min(1, dt * 4));
+      p.x = Math.max(-HL + 0.6, Math.min(HL - 0.6, p.x + p.vx * dt));
+      p.z = Math.max(-HW + 0.6, Math.min(HW - 0.6, p.z + p.vz * dt));
+    });
+    flash = Math.max(0, flash - dt * 1.2);
+  }
+
+  /* ---------- timeline of the opening sequence ---------- */
+  var t0 = performance.now();
+  var lastT = 0;
+  function levels(t) {
+    towers.forEach(function (tw) {
+      if (reduce) { tw.level = 1; return; }
+      var k = t - tw.on;
+      if (k < 0) tw.level = 0;
+      else if (k < 0.55) {
+        var f = Math.sin(k * 61) + Math.sin(k * 23.7);
+        tw.level = f > 0.3 ? 0.9 : 0.12;
+      } else tw.level = 1;
+    });
+  }
+
+  /* ---------- draw ---------- */
+  function draw(t) {
+    if (!W) return;
+    setCam();
+    levels(t);
+    var L = towers.reduce(function (a, tw) { return a + tw.level; }, 0) / 4;
+    var lineP = reduce ? 1 : Math.max(0, Math.min(1, (t - 1.25) / 1.4));
+    var playersA = reduce ? 1 : Math.max(0, Math.min(1, (t - 2.3) / 0.6));
+    var lw = Math.max(1, 0.13 * focal / DIST);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // apron (concrete around the pitch)
+    poly([[-27, 0, -19], [27, 0, -19], [27, 0, 19], [-27, 0, 19]], mix('#0B1630', '#18263F', L));
+
+    // turf stripes
+    for (var i = 0; i < 8; i++) {
+      var x0 = -HL - 1.5 + i * ((2 * HL + 3) / 8), x1 = x0 + (2 * HL + 3) / 8;
+      var c = i % 2 ? mix('#0D2A22', '#1E7C50', L) : mix('#0C261F', '#1B6F48', L);
+      poly([[x0, 0, -HW - 1.5], [x1, 0, -HW - 1.5], [x1, 0, HW + 1.5], [x0, 0, HW + 1.5]], c);
+    }
+
+    // light pools on the grass
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    towers.forEach(function (tw) {
+      if (tw.level <= 0) return;
+      var g = P(tw.x * 0.42, 0, tw.z * 0.42);
+      var r = 19 * g[2];
+      ctx.save();
+      ctx.translate(g[0], g[1]);
+      ctx.scale(1, Math.max(0.35, sel * 0.95));
+      var grd = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      grd.addColorStop(0, 'rgba(255,214,140,' + (0.2 * tw.level) + ')');
+      grd.addColorStop(0.55, 'rgba(255,200,120,' + (0.08 * tw.level) + ')');
+      grd.addColorStop(1, 'rgba(255,200,120,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    });
+    ctx.restore();
+
+    // chalk lines (drawn on progressively)
+    if (lineP > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(241,244,234,' + (0.55 + 0.35 * L) + ')';
+      ctx.lineWidth = lw; ctx.lineCap = 'round';
+      ctx.shadowColor = 'rgba(241,244,234,.35)'; ctx.shadowBlur = 4 * L;
+      var budget = lineP * totalLen;
+      ctx.beginPath();
+      for (var s = 0; s < segs.length && budget > 0; s++) {
+        var a = segs[s][0], b = segs[s][1], f = Math.min(1, budget / segLen[s]);
+        var pa = P(a[0], 0, a[1]), pb = P(lerp(a[0], b[0], f), 0, lerp(a[1], b[1], f));
+        ctx.moveTo(pa[0], pa[1]); ctx.lineTo(pb[0], pb[1]);
+        budget -= segLen[s];
+      }
+      ctx.stroke();
+      if (lineP >= 1) { var cs = P(0, 0, 0); ctx.fillStyle = ctx.strokeStyle; ctx.beginPath(); ctx.arc(cs[0], cs[1], lw * 1.4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
+
+    // goals
+    [-1, 1].forEach(function (side) {
+      var gx = side * HL, bx = side * (HL + 1.3);
+      ctx.save();
+      ctx.globalAlpha = 0.3 + 0.7 * Math.max(lineP, 0.2);
+      poly([[gx, 0, -2.5], [bx, 0, -2.5], [bx, 1.2, -2.5], [gx, 2.1, -2.5]], 'rgba(220,230,255,.06)', 'rgba(220,230,255,.25)', 1);
+      poly([[gx, 0, 2.5], [bx, 0, 2.5], [bx, 1.2, 2.5], [gx, 2.1, 2.5]], 'rgba(220,230,255,.06)', 'rgba(220,230,255,.25)', 1);
+      poly([[bx, 0, -2.5], [bx, 0, 2.5], [bx, 1.2, 2.5], [bx, 1.2, -2.5]], 'rgba(220,230,255,.07)', 'rgba(220,230,255,.22)', 1);
+      poly([[gx, 2.1, -2.5], [gx, 2.1, 2.5], [bx, 1.2, 2.5], [bx, 1.2, -2.5]], 'rgba(220,230,255,.05)', null);
+      var p1 = P(gx, 0, -2.5), p2 = P(gx, 2.1, -2.5), p3 = P(gx, 2.1, 2.5), p4 = P(gx, 0, 2.5);
+      ctx.strokeStyle = '#F1F4EA'; ctx.lineWidth = Math.max(1.4, lw * 1.3); ctx.lineJoin = 'round';
+      ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.lineTo(p3[0], p3[1]); ctx.lineTo(p4[0], p4[1]); ctx.stroke();
+      ctx.restore();
+    });
+
+    // cage walls: far walls before players, near walls after
+    var walls = [
+      [[-22.5, -15], [22.5, -15]], [[22.5, -15], [22.5, 15]], [[22.5, 15], [-22.5, 15]], [[-22.5, 15], [-22.5, -15]]
+    ].map(function (w) {
+      var mx = (w[0][0] + w[1][0]) / 2, mz = (w[0][1] + w[1][1]) / 2;
+      return { w: w, d: P(mx, 2, mz)[3] };
+    });
+    function drawWall(wall) {
+      var a = wall.w[0], b = wall.w[1], hgt = 5;
+      poly([[a[0], 0, a[1]], [b[0], 0, b[1]], [b[0], hgt, b[1]], [a[0], hgt, a[1]]], 'rgba(150,180,255,' + (0.025 + 0.02 * L) + ')', null);
+      var len = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.round(len / 5);
+      ctx.strokeStyle = 'rgba(190,210,255,' + (0.14 + 0.12 * L) + ')'; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (var k = 0; k <= n; k++) {
+        var x = lerp(a[0], b[0], k / n), z = lerp(a[1], b[1], k / n);
+        var g1 = P(x, 0, z), g2 = P(x, hgt, z);
+        ctx.moveTo(g1[0], g1[1]); ctx.lineTo(g2[0], g2[1]);
+      }
+      var t1 = P(a[0], hgt, a[1]), t2 = P(b[0], hgt, b[1]);
+      ctx.moveTo(t1[0], t1[1]); ctx.lineTo(t2[0], t2[1]);
+      ctx.stroke();
+    }
+    walls.filter(function (w) { return w.d >= DIST; }).forEach(drawWall);
+
+    // tower poles
+    towers.forEach(function (tw) {
+      var g = P(tw.x, 0, tw.z), top = P(tw.x, TOWER_H, tw.z);
+      ctx.strokeStyle = mix('#2A3B63', '#53668F', L); ctx.lineWidth = Math.max(2, 0.35 * g[2]); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(g[0], g[1]); ctx.lineTo(top[0], top[1]); ctx.stroke();
+    });
+
+    // players and ball, far to near
+    if (playersA > 0) {
+      var items = players.map(function (p) { return { p: p, d: P(p.x, 0, p.z)[3] }; });
+      items.push({ ball: true, d: P(ball.x, 0, ball.z)[3] - 0.01 });
+      items.sort(function (a, b) { return b.d - a.d; });
+
+      // shadows first (one per lit floodlight)
+      ctx.save();
+      ctx.lineCap = 'round';
+      players.forEach(function (p) {
+        towers.forEach(function (tw) {
+          if (tw.level < 0.5) return;
+          var dx = p.x - tw.x, dz = p.z - tw.z, dd = Math.hypot(dx, dz);
+          var len = 1.9 * 30 / dd;
+          var f = P(p.x, 0, p.z), e = P(p.x + dx / dd * len, 0, p.z + dz / dd * len);
+          ctx.strokeStyle = 'rgba(2,8,20,' + (0.2 * tw.level * playersA) + ')';
+          ctx.lineWidth = 0.42 * f[2];
+          ctx.beginPath(); ctx.moveTo(f[0], f[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+        });
+      });
+      var bs = P(ball.x, 0, ball.z);
+      ctx.fillStyle = 'rgba(2,8,20,' + (0.35 * playersA) + ')';
+      ctx.beginPath(); ctx.ellipse(bs[0], bs[1], 0.28 * bs[2], 0.28 * bs[2] * sel, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      ctx.save();
+      ctx.globalAlpha = playersA;
+      items.forEach(function (it) {
+        if (it.ball) {
+          var b = P(ball.x, ball.y + 0.11, ball.z);
+          var r = Math.max(2.2, 0.24 * b[2]);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.shadowColor = 'rgba(255,255,255,.8)'; ctx.shadowBlur = 8;
+          ctx.beginPath(); ctx.arc(b[0], b[1], r, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+          return;
+        }
+        var p = it.p, team = TEAM[p.team];
+        var bob = Math.abs(Math.sin(p.phase * 9)) * 0.06 * Math.min(1, Math.hypot(p.vx, p.vz));
+        var foot = P(p.x, 0.2 + bob, p.z), hip = P(p.x, 0.95 + bob, p.z), sh = P(p.x, 1.45 + bob, p.z), head = P(p.x, 1.78 + bob, p.z);
+        var w = 0.5 * foot[2];
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = team.dark; ctx.lineWidth = w * 0.8;
+        ctx.beginPath(); ctx.moveTo(foot[0], foot[1]); ctx.lineTo(hip[0], hip[1]); ctx.stroke();
+        ctx.strokeStyle = p.gk ? '#3FBF7F' : team.color; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(hip[0], hip[1]); ctx.lineTo(sh[0], sh[1]); ctx.stroke();
+        ctx.fillStyle = '#E9D2B8';
+        ctx.beginPath(); ctx.arc(head[0], head[1], 0.2 * head[2], 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.restore();
+    }
+
+    walls.filter(function (w) { return w.d < DIST; }).forEach(drawWall);
+
+    // floodlight beams, lamp heads and glow
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    towers.forEach(function (tw) {
+      if (tw.level <= 0) return;
+      var lamp = P(tw.x, TOWER_H, tw.z);
+      var aim = P(tw.x * 0.42, 0, tw.z * 0.42);
+      var ang = Math.atan2(aim[1] - lamp[1], aim[0] - lamp[0]);
+      var spread = 14 * aim[2];
+      var nx = Math.cos(ang + Math.PI / 2) * spread, ny = Math.sin(ang + Math.PI / 2) * spread;
+      var beam = ctx.createLinearGradient(lamp[0], lamp[1], aim[0], aim[1]);
+      beam.addColorStop(0, 'rgba(255,225,165,' + (0.16 * tw.level) + ')');
+      beam.addColorStop(1, 'rgba(255,225,165,0)');
+      ctx.fillStyle = beam;
+      ctx.beginPath();
+      ctx.moveTo(lamp[0], lamp[1]);
+      ctx.lineTo(aim[0] + nx, aim[1] + ny);
+      ctx.lineTo(aim[0] - nx, aim[1] - ny);
+      ctx.closePath(); ctx.fill();
+
+      var gr = 46 * lamp[2] / 9;
+      var glow = ctx.createRadialGradient(lamp[0], lamp[1], 0, lamp[0], lamp[1], gr * 3);
+      glow.addColorStop(0, 'rgba(255,240,205,' + (0.85 * tw.level) + ')');
+      glow.addColorStop(0.18, 'rgba(255,210,130,' + (0.35 * tw.level) + ')');
+      glow.addColorStop(1, 'rgba(255,190,90,0)');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(lamp[0], lamp[1], gr * 3, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.restore();
+
+    // lamp banks (2 x 3 lamps per tower)
+    towers.forEach(function (tw) {
+      var lamp = P(tw.x, TOWER_H, tw.z), sz = Math.max(1.6, 0.42 * lamp[2]);
+      for (var r = 0; r < 2; r++) for (var cI = 0; cI < 3; cI++) {
+        ctx.fillStyle = tw.level > 0.5 ? '#FFF6DF' : '#3A4A6E';
+        ctx.fillRect(lamp[0] + (cI - 1.5) * sz * 1.25, lamp[1] + (r - 1) * sz * 1.25, sz, sz);
+      }
+    });
+
+    // brief flash on a goal
+    if (flash > 0) {
+      ctx.fillStyle = 'rgba(255,220,150,' + (flash * 0.12) + ')';
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  /* ---------- loop ---------- */
+  var running = false, raf = 0, visible = true, paused = false, prev = 0;
+  function frame(now) {
+    raf = 0;
+    if (!running) return;
+    var t = (now - t0) / 1000;
+    var dt = Math.min(0.05, (now - (prev || now)) / 1000);
+    prev = now;
+    lastT = t;
+    cam.yaw = lerp(cam.yaw, cam.ty + Math.sin(t * 0.12) * 0.06, Math.min(1, dt * 2.5));
+    cam.el = lerp(cam.el, cam.te, Math.min(1, dt * 2.5));
+    if (t > 2.4) update(dt);
+    draw(t);
+    raf = requestAnimationFrame(frame);
+  }
+  function sync() {
+    var should = !reduce && visible && !paused && !document.hidden;
+    if (should && !running) { running = true; prev = 0; if (!raf) raf = requestAnimationFrame(frame); }
+    else if (!should && running) { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+  }
+
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(canvas);
+  else window.addEventListener('resize', resize);
+  resize();
+
+  if (window.IntersectionObserver) {
+    new IntersectionObserver(function (entries) { visible = entries[0].isIntersecting; sync(); }, { threshold: 0.02 }).observe(canvas);
+  }
+  document.addEventListener('visibilitychange', sync);
+
+  if (hero && !reduce) {
+    hero.addEventListener('pointermove', function (e) {
+      var r = stage.getBoundingClientRect();
+      var nx = (e.clientX - r.left) / r.width - 0.5, ny = (e.clientY - r.top) / r.height - 0.5;
+      cam.ty = BASE_YAW + Math.max(-0.6, Math.min(0.6, nx)) * 0.5;
+      cam.te = BASE_EL + Math.max(-0.5, Math.min(0.5, ny)) * 0.22;
+    });
+    hero.addEventListener('pointerleave', function () { cam.ty = BASE_YAW; cam.te = BASE_EL; });
+  }
+
+  FL.heroPause = function (p) { paused = p; sync(); if (!p && (reduce || !running)) { resize(); } };
+  if (reduce) { lastT = 10; draw(10); }
+  sync();
+})(window.FL);
+
+</script>
+  <script>
+/* =========================================================
+   Floodlit — player side
+   Pitch finder with natural-language search, live slot board,
+   10-minute slot holds, squad split payments, demo checkout,
+   QR match pass, my bookings, squad board, live activity.
+   ========================================================= */
+(function (FL) {
+  'use strict';
+
+  var $ = (s, r) => (r || document).querySelector(s);
+  var $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  var pad = n => String(n).padStart(2, '0');
+  FL.esc = esc;
+
+  var store = {
+    get(k, f) { try { var v = localStorage.getItem('floodlit:' + k); return v ? JSON.parse(v) : f; } catch (e) { return f; } },
+    set(k, v) { try { localStorage.setItem('floodlit:' + k, JSON.stringify(v)); } catch (e) { /* storage blocked: keep going in memory */ } }
+  };
+
+  /* =========================================================
+     Toasts and tooltip (shared with the owner view)
+     ========================================================= */
+  function toast(html, kind) {
+    var box = $('#toasts');
+    var el = document.createElement('div');
+    el.className = 'toast ' + (kind || '');
+    el.innerHTML = '<i aria-hidden="true"></i><p>' + html + '</p>';
+    box.appendChild(el);
+    while (box.children.length > 3) box.firstElementChild.remove();
+    setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 380); }, kind === 'live' ? 5200 : 4200);
+  }
+  FL.toast = toast;
+
+  var tip = $('#tip');
+  FL.showTip = function (html, x, y) {
+    tip.innerHTML = html;
+    tip.hidden = false;
+    var r = tip.getBoundingClientRect();
+    var left = Math.min(window.innerWidth - r.width - 12, x + 14);
+    var top = y - r.height - 12;
+    if (top < 8) top = y + 20;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = top + 'px';
+  };
+  FL.hideTip = function () { tip.hidden = true; };
+
+  function copyText(text, okMsg, el) {
+    function fallback() {
+      if (el) { var range = document.createRange(); range.selectNodeContents(el); var sel = getSelection(); sel.removeAllRanges(); sel.addRange(range); }
+      toast('Text selected. Press Ctrl+C to copy it.');
+    }
+    try {
+      navigator.clipboard.writeText(text).then(() => toast(okMsg, 'ok'), fallback);
+    } catch (e) { fallback(); }
+  }
+
+  /* =========================================================
+     Your bookings, kept in this browser
+     ========================================================= */
+  FL.my = store.get('bookings', []).filter(b => b && b.key && FL.offsetOf(b.key) >= 0);
+  FL.my.forEach(b => { if (b.status !== 'cancelled') FL.addBooking(b.turfId, b.pitchId, b.key, b); });
+  function saveMy() { store.set('bookings', FL.my); }
+  function updateBadge(bump) {
+    var n = FL.my.filter(b => b.status !== 'cancelled').length;
+    var el = $('#mine-count');
+    el.hidden = !n; el.textContent = n;
+    if (bump && !reduce) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+  }
+
+  /* =========================================================
+     Finder: filters and results
+     ========================================================= */
+  var DEFAULT_OFF = new Date().getHours() >= 20 ? 1 : 0;
+  var WIN = { any: [FL.OPEN, FL.CLOSE], morning: [360, 720], day: [720, 1020], evening: [1020, 1380], late: [1380, 1560] };
+  var WIN_LABEL = { morning: 'Morning', day: 'Daytime', evening: 'Evening', late: 'Late night' };
+  var MAX_PRICE = 6000;
+  function defaults() { return { area: 'all', off: DEFAULT_OFF, win: 'evening', after: null, size: 'any', indoor: false, rooftop: false, max: MAX_PRICE, sort: 'soonest' }; }
+  var F = defaults();
+  function isDefault() { var d = defaults(); return Object.keys(d).every(k => d[k] === F[k]); }
+
+  function dateChips(active) {
+    var h = '';
+    for (var i = 0; i < 7; i++) {
+      var d = FL.dateFor(i), k = FL.keyOf(d), wk = FL.isWeekend(k);
+      var small = i === 0 ? 'Today' : i === 1 ? 'Tmrw' : d.toLocaleDateString('en-GB', { weekday: 'short' });
+      h += '<button type="button" class="date' + (wk ? ' wknd' : '') + '" data-off="' + i + '" aria-pressed="' + (i === active) + '"' +
+        ' aria-label="' + esc(d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })) + (wk ? ', weekend rates' : '') + '"' +
+        (wk ? ' title="Weekend rates apply"' : '') + '><small>' + small + '</small><b>' + d.getDate() + '</b></button>';
+    }
+    return h;
+  }
+
+  function syncControls() {
+    $('#f-dates').innerHTML = dateChips(F.off);
+    $('#f-area').value = F.area;
+    $$('#f-win button').forEach(b => b.setAttribute('aria-pressed', String(F.after == null && b.dataset.win === F.win)));
+    $$('#f-size button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.size === String(F.size))));
+    $('#f-indoor').setAttribute('aria-pressed', String(F.indoor));
+    $('#f-rooftop').setAttribute('aria-pressed', String(F.rooftop));
+    $('#f-max').value = F.max;
+    $('#f-max-out').textContent = FL.money(F.max);
+    $('#f-sort').value = F.sort;
+    var when = F.off === 0 ? (F.win === 'evening' || F.win === 'late' ? 'tonight' : 'today') : F.off === 1 ? 'tomorrow' : 'on ' + FL.dayLabel(F.off);
+    $('#finder-title').textContent = 'Pitches ' + when;
+  }
+
+  function thumb(t) {
+    var id = 'glow-' + t.id, s = '';
+    for (var i = 0; i < 8; i++) s += '<rect x="' + (12 + i * 17) + '" y="12" width="17" height="86" fill="' + t.stripes[i % 2] + '"/>';
+    var extra = '';
+    if (t.indoor) {
+      extra = '<g stroke="#BFD2FF" stroke-opacity=".22" stroke-width="2">' +
+        [24, 52, 80, 108, 136].map(x => '<line x1="' + x + '" y1="0" x2="' + x + '" y2="110"/>').join('') + '</g>';
+    }
+    if (t.rooftop) {
+      extra = '<g fill="#24396A"><rect x="0" y="0" width="160" height="6"/>' +
+        [[6, 4], [16, 6], [30, 3], [44, 7], [60, 5], [76, 6], [92, 4], [108, 7], [124, 5], [140, 6], [152, 4]].map(p => '<rect x="' + p[0] + '" y="0" width="9" height="' + (p[1] + 3) + '"/>').join('') + '</g>' +
+        '<g fill="#FFC24B" opacity=".8">' + [9, 33, 63, 95, 127, 155].map(x => '<rect x="' + x + '" y="2" width="2" height="2"/>').join('') + '</g>';
+    }
+    var lamps = [[8, 8], [152, 8], [8, 102], [152, 102]];
+    return '<svg viewBox="0 0 160 110" role="img" aria-label="Top-down view of ' + esc(t.name) + '">' +
+      '<defs><radialGradient id="' + id + '"><stop offset="0" stop-color="#FFE3A8" stop-opacity=".55"/><stop offset="1" stop-color="#FFE3A8" stop-opacity="0"/></radialGradient></defs>' +
+      '<rect width="160" height="110" fill="' + t.apron + '"/>' + s +
+      '<g fill="none" stroke="#F1F4EA" stroke-opacity=".85" stroke-width="1.3">' +
+      '<rect x="12" y="12" width="136" height="86"/><line x1="80" y1="12" x2="80" y2="98"/><circle cx="80" cy="55" r="11"/>' +
+      '<path d="M12 35 A20 20 0 0 1 12 75"/><path d="M148 35 A20 20 0 0 0 148 75"/></g>' +
+      '<g fill="#F1F4EA"><rect x="9" y="49" width="3" height="12"/><rect x="148" y="49" width="3" height="12"/></g>' +
+      extra +
+      lamps.map(l => '<circle cx="' + l[0] + '" cy="' + l[1] + '" r="46" fill="url(#' + id + ')"/>').join('') +
+      lamps.map(l => '<circle cx="' + l[0] + '" cy="' + l[1] + '" r="2.4" fill="#FFF6DF"/>').join('') +
+      '</svg>';
+  }
+
+  function computeRows() {
+    var key = FL.dateKey(F.off);
+    var win = F.after != null ? [F.after, FL.CLOSE] : WIN[F.win];
+    var pool = FL.turfs.filter(t => (F.area === 'all' || t.area === F.area) && (!F.indoor || t.indoor) && (!F.rooftop || t.rooftop) &&
+      t.pitches.some(p => F.size === 'any' || p.size === F.size));
+    return pool.map(t => {
+      var slots = [], anyFree = 0;
+      t.pitches.forEach(p => {
+        if (F.size !== 'any' && p.size !== F.size) return;
+        for (var s = FL.OPEN; s + 60 <= FL.CLOSE; s += 60) {
+          if (s < win[0] || s >= win[1]) continue;
+          if (!FL.isFree(t.id, p.id, key, s, 60)) continue;
+          anyFree++;
+          var pi = FL.priceInfo(t.id, p, key, s, 60);
+          if (pi.price > F.max) continue;
+          slots.push({ p: p, s: s, pi: pi });
+        }
+      });
+      slots.sort((a, b) => a.s - b.s || a.pi.price - b.pi.price);
+      return {
+        t: t, slots: slots, anyFree: anyFree,
+        min: slots.length ? Math.min.apply(null, slots.map(x => x.pi.price)) : Infinity,
+        first: slots.length ? slots[0].s : Infinity
+      };
+    });
+  }
+
+  function sizesText(t) {
+    var sizes = Array.from(new Set(t.pitches.map(p => p.size))).sort();
+    return sizes.length > 1 ? sizes.join(' and ') + '-a-side' : sizes[0] + '-a-side';
+  }
+
+  function rowHead(t) {
+    return '<div class="fx-thumb">' + thumb(t) + '</div>' +
+      '<div class="fx-main"><h3 class="fx-name">' + esc(t.name) + '</h3>' +
+      '<p class="fx-meta">' + esc(t.area) + ', ' + sizesText(t) + '. ' + esc(t.blurb) + '.</p>' +
+      '<p class="fx-rate"><span class="star" aria-hidden="true">★</span>' + t.rating.toFixed(1) + ' <span>' + t.reviews + ' reviews</span></p>' +
+      '<ul class="feats">' + t.features.map(f => '<li>' + esc(f) + '</li>').join('') + '</ul></div>';
+  }
+
+  var waitlist = {};
+  function rowOpen(r) {
+    var t = r.t;
+    var multi = t.pitches.filter(p => F.size === 'any' || p.size === F.size).length > 1;
+    var chips = r.slots.slice(0, 6).map(x => {
+      var c = FL.clock(x.s);
+      return '<button type="button" class="flip" data-book="' + t.id + '" data-pitch="' + x.p.id + '" data-start="' + x.s + '"' +
+        ' aria-label="Book ' + esc(x.p.name) + ' at ' + FL.time(x.s) + ' for ' + FL.money(x.pi.price) + '">' +
+        '<b>' + c.t + '</b><i>' + c.ap + '</i><small>' + (multi ? '<em>' + esc(x.p.id) + '</em>' : '') + FL.money(x.pi.price) + '</small></button>';
+    }).join('');
+    var more = r.slots.length > 6 ? '<span class="board-more">+' + (r.slots.length - 6) + ' more</span>' : '';
+    return '<li class="fx" data-turf="' + t.id + '">' + rowHead(t) +
+      '<div class="fx-slots"><p class="fx-slots-l">Next open, 1 hour' + (multi ? ', letter is the pitch' : '') + '</p><div class="board">' + chips + more + '</div></div>' +
+      '<div class="fx-cta"><p class="fx-price"><small>From, per hour</small>' + FL.money(r.min) + '</p>' +
+      '<button type="button" class="btn btn-primary" data-book="' + t.id + '">Book</button></div></li>';
+  }
+  function rowFull(r) {
+    var t = r.t, on = !!waitlist[t.id];
+    var note = r.anyFree ? 'No open slots under ' + FL.money(F.max) + ' at this time.' : 'Fully booked for this time.';
+    return '<li class="fx is-full" data-turf="' + t.id + '">' + rowHead(t) +
+      '<div class="fx-slots"><p class="fx-full-note">' + note + '</p></div>' +
+      '<div class="fx-cta"><button type="button" class="btn btn-ghost" data-wait="' + t.id + '" aria-pressed="' + on + '">' + (on ? 'On the waitlist' : 'Join waitlist') + '</button></div></li>';
+  }
+
+  function renderResults(animate) {
+    var rows = computeRows();
+    var open = rows.filter(r => r.slots.length), full = rows.filter(r => !r.slots.length);
+    var sorters = {
+      soonest: (a, b) => a.first - b.first || a.min - b.min,
+      price: (a, b) => a.min - b.min,
+      rating: (a, b) => b.t.rating - a.t.rating
+    };
+    open.sort(sorters[F.sort]);
+    var nSlots = open.reduce((a, r) => a + r.slots.length, 0);
+    $('#results-count').innerHTML = open.length
+      ? '<b>' + open.length + ' ' + (open.length === 1 ? 'turf' : 'turfs') + '</b> with ' + nSlots + ' open ' + (nSlots === 1 ? 'slot' : 'slots')
+      : 'No open slots match these filters';
+    $('#clear-filters').hidden = isDefault();
+    var html = open.map(rowOpen).join('') + full.map(rowFull).join('');
+    if (!rows.length) {
+      html = '<li class="empty"><p>No turfs match these filters. Try another area or format.</p>' +
+        '<button type="button" class="btn btn-ghost" data-clear>Clear filters</button></li>';
+    }
+    $('#fixtures').innerHTML = html;
+    if (animate && !reduce) {
+      $$('#fixtures .flip').forEach((el, i) => { el.style.setProperty('--i', Math.min(i, 24)); el.classList.add('in'); });
+    }
+  }
+
+  /* ---------- natural-language search ---------- */
+  function parseQuery(q) {
+    var s = ' ' + q.toLowerCase().replace(/[,.!?]/g, ' ') + ' ';
+    var out = {}, parts = [];
+    var areaMap = { bashundhara: 'Bashundhara', dhanmondi: 'Dhanmondi', gulshan: 'Gulshan', mirpur: 'Mirpur', pallabi: 'Mirpur', mohammadpur: 'Mohammadpur', uttara: 'Uttara' };
+    for (var k in areaMap) if (s.indexOf(k) > -1) { out.area = areaMap[k]; parts.push(out.area); break; }
+
+    if (/\b(5|five)\s*-?\s*(a\s*-?\s*side|aside|v\s*5|vs\s*5)\b|\b5v5\b/.test(s)) { out.size = 5; parts.push('5-a-side'); }
+    else if (/\b(7|seven)\s*-?\s*(a\s*-?\s*side|aside|v\s*7|vs\s*7)\b|\b7v7\b/.test(s)) { out.size = 7; parts.push('7-a-side'); }
+
+    var days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    var todayDow = FL.dateFor(0).getDay();
+    if (/\b(today|tonight)\b/.test(s)) out.off = 0;
+    else if (/\b(tomorrow|tmrw|tmr|tomorow)\b/.test(s)) out.off = 1;
+    else if (/\bweekend\b/.test(s)) out.off = (5 - todayDow + 7) % 7;
+    else {
+      for (var i = 0; i < 7; i++) {
+        if (new RegExp('\\b(' + days[i] + '|' + days[i].slice(0, 3) + ')\\b').test(s)) { out.off = (i - todayDow + 7) % 7; break; }
+      }
+    }
+    if (out.off != null) parts.push(FL.dayLabel(out.off));
+
+    var m = s.match(/\b(after|from|at|around|by|past)\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/) || s.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/);
+    if (m) {
+      var h, mm, ap;
+      if (m.length === 5) { h = +m[2]; mm = +(m[3] || 0); ap = m[4]; } else { h = +m[1]; mm = +(m[2] || 0); ap = m[3]; }
+      if (h >= 1 && h <= 12) {
+        if (ap === 'pm' && h < 12) h += 12;
+        else if (ap === 'am' && h === 12) h = 24;
+        else if (ap === 'am' && h < 6) h += 24;
+        else if (!ap && h < 12 && !/morning/.test(s)) h += 12;
+        var mins = h * 60 + mm;
+        if (mins >= FL.OPEN && mins < FL.CLOSE) { out.after = mins; parts.push('from ' + FL.time(mins)); }
+      }
+    }
+    if (out.after == null) {
+      if (/\b(late|midnight)\b/.test(s)) out.win = 'late';
+      else if (/\b(tonight|evening|night)\b/.test(s)) out.win = 'evening';
+      else if (/\bmorning\b/.test(s)) out.win = 'morning';
+      else if (/\b(afternoon|daytime|lunch)\b/.test(s)) out.win = 'day';
+      if (out.win) parts.push(WIN_LABEL[out.win]);
+    }
+    var b = s.match(/\b(under|below|max|less than|upto|up to|cheaper than)\s*(?:৳|tk\.?|bdt|taka)?\s*(\d[\d,]*)/);
+    if (b) { var v = +b[2].replace(/,/g, ''); if (v >= 500) { out.max = Math.min(MAX_PRICE, Math.max(1500, Math.ceil(v / 250) * 250)); parts.push('under ' + FL.money(v)); } }
+    if (/\b(indoor|ac|air\s*-?con\w*)\b/.test(s)) { out.indoor = true; parts.push('Indoor AC'); }
+    if (/\b(rooftop|roof)\b/.test(s)) { out.rooftop = true; parts.push('Rooftop'); }
+    if (/\b(cheap|cheapest|budget)\b/.test(s)) { out.sort = 'price'; parts.push('cheapest first'); }
+    if (/\b(best|top rated|top-rated)\b/.test(s)) { out.sort = 'rating'; parts.push('top rated first'); }
+    return { f: out, parts: parts };
+  }
+
+  function runAsk(q) {
+    var read = $('#ask-read');
+    q = q.trim();
+    if (!q) return;
+    var res = parseQuery(q);
+    if (!res.parts.length) {
+      read.hidden = false;
+      read.innerHTML = '<span class="err">Couldn\'t pick out an area, day or time from that. Try something like “Uttara tomorrow evening”.</span>';
+      return;
+    }
+    F = Object.assign(defaults(), res.f);
+    read.hidden = false;
+    read.innerHTML = '<span>Showing</span>' + res.parts.map((p, i) => '<span class="chip" style="--i:' + i + '">' + esc(p) + '</span>').join('') +
+      '<button type="button" class="link-btn" data-clear>Clear</button>';
+    syncControls();
+    renderResults(true);
+  }
+
+  function clearAll() {
+    F = defaults();
+    $('#ask-input').value = '';
+    $('#ask-read').hidden = true;
+    syncControls();
+    renderResults(true);
+  }
+
+  function filterChanged(animate) {
+    $('#ask-read').hidden = true;
+    syncControls();
+    renderResults(animate !== false);
+  }
+
+  function bindFinder() {
+    var sel = $('#f-area');
+    FL.AREAS.forEach(a => { var o = document.createElement('option'); o.value = a; o.textContent = a; sel.appendChild(o); });
+
+    $('#console').addEventListener('submit', e => { e.preventDefault(); runAsk($('#ask-input').value); });
+    $('#ask-try').addEventListener('click', e => {
+      var b = e.target.closest('.try'); if (!b) return;
+      $('#ask-input').value = b.textContent; runAsk(b.textContent);
+    });
+    $('#ask-read').addEventListener('click', e => { if (e.target.closest('[data-clear]')) clearAll(); });
+    $('#f-dates').addEventListener('click', e => { var b = e.target.closest('[data-off]'); if (!b) return; F.off = +b.dataset.off; filterChanged(); });
+    sel.addEventListener('change', () => { F.area = sel.value; filterChanged(); });
+    $('#f-win').addEventListener('click', e => { var b = e.target.closest('[data-win]'); if (!b) return; F.win = b.dataset.win; F.after = null; filterChanged(); });
+    $('#f-size').addEventListener('click', e => { var b = e.target.closest('[data-size]'); if (!b) return; F.size = b.dataset.size === 'any' ? 'any' : +b.dataset.size; filterChanged(); });
+    $('#f-indoor').addEventListener('click', () => { F.indoor = !F.indoor; filterChanged(); });
+    $('#f-rooftop').addEventListener('click', () => { F.rooftop = !F.rooftop; filterChanged(); });
+    var maxT = 0;
+    $('#f-max').addEventListener('input', e => {
+      F.max = +e.target.value; $('#f-max-out').textContent = FL.money(F.max);
+      clearTimeout(maxT); maxT = setTimeout(() => filterChanged(false), 120);
+    });
+    $('#f-sort').addEventListener('change', e => { F.sort = e.target.value; filterChanged(); });
+    $('#clear-filters').addEventListener('click', clearAll);
+
+    $('#fixtures').addEventListener('click', e => {
+      var b = e.target.closest('[data-book]');
+      if (b) { openBooking(b.dataset.book, b.dataset.pitch, b.dataset.start != null ? +b.dataset.start : null, F.off); return; }
+      var w = e.target.closest('[data-wait]');
+      if (w) {
+        var id = w.dataset.wait, t = FL.turfById(id);
+        waitlist[id] = !waitlist[id];
+        w.setAttribute('aria-pressed', String(waitlist[id]));
+        w.textContent = waitlist[id] ? 'On the waitlist' : 'Join waitlist';
+        toast(waitlist[id] ? 'You\'re on the waitlist for <b>' + esc(t.name) + '</b>. We\'ll text you if a slot opens.' : 'Left the waitlist for ' + esc(t.name) + '.', 'ok');
+        return;
+      }
+      if (e.target.closest('[data-clear]')) clearAll();
+    });
+
+    // rotate example placeholders
+    var examples = ['7-a-side in Mirpur tomorrow after 9pm', 'rooftop pitch tonight under 4000', 'cheapest 5-a-side on Friday evening', 'Gulshan indoor tomorrow at 8pm'];
+    var ei = 0, input = $('#ask-input');
+    setInterval(() => {
+      if (document.activeElement === input || input.value) return;
+      ei = (ei + 1) % examples.length; input.placeholder = examples[ei];
+    }, 3200);
+  }
+
+  /* ---------- hero counters ---------- */
+  var heroCounted = false;
+  function updateHero() {
+    var key = FL.dateKey(DEFAULT_OFF), n = 0, first = Infinity;
+    FL.turfs.forEach(t => t.pitches.forEach(p => {
+      for (var s = 1020; s + 60 <= FL.CLOSE; s += 60) {
+        if (FL.isFree(t.id, p.id, key, s, 60)) { n++; if (s < first) first = s; }
+      }
+    }));
+    $('#open-label').textContent = DEFAULT_OFF === 0 ? 'open slots tonight' : 'open slots tomorrow night';
+    $('#open-next').textContent = first === Infinity ? 'Evenings are full' : (DEFAULT_OFF === 0 ? 'Next kick-off ' : 'First kick-off ') + FL.time(first);
+    var el = $('#open-count');
+    if (heroCounted || reduce) { el.textContent = n; return; }
+    heroCounted = true;
+    var t0 = 0;
+    setTimeout(() => requestAnimationFrame(function step(now) {
+      if (!t0) t0 = now;
+      var k = Math.min(1, (now - t0) / 1100);
+      el.textContent = Math.round(n * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(step);
+    }), 2800);
+  }
+
+  /* =========================================================
+     Booking drawer
+     ========================================================= */
+  var HOLD_MS = 10 * 60 * 1000;
+  var ADDONS = [
+    { id: 'ball', name: 'Match ball', desc: 'Size 5, pumped and ready', price: 150 },
+    { id: 'bibs', name: 'Bibs, two sets', desc: 'Washed after every game', price: 200 },
+    { id: 'water', name: 'Water crate', desc: '24 cold bottles at pitch side', price: 300 },
+    { id: 'ref', name: 'Referee', desc: 'Certified ref for the full slot', price: 800 },
+    { id: 'cam', name: 'Match recording', desc: 'A tracking camera films the game. Highlights arrive by morning.', price: 900 }
+  ];
+  var METHODS = { bkash: 'bKash', nagad: 'Nagad', card: 'card' };
+  var PERIODS = [['Morning', 360, 720], ['Daytime', 720, 1020], ['Evening, peak rates', 1020, 1380], ['Late night', 1380, 1560]];
+
+  var bk = null, holdTimer = null, matesTimer = null, justTaken = null;
+
+  function code(n) { var a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', s = ''; for (var i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
+  function bkTurf() { return FL.turfById(bk.turfId); }
+  function bkPitch() { return FL.pitchOf(bkTurf(), bk.pitchId); }
+  function bkKey() { return FL.dateKey(bk.off); }
+  function slotPrice() { return FL.priceInfo(bk.turfId, bkPitch(), bkKey(), bk.start, bk.dur).price; }
+  function extrasTotal() { return ADDONS.reduce((a, x) => a + (bk.addons[x.id] ? x.price : 0), 0); }
+  function total() { return slotPrice() + extrasTotal(); }
+  function perHead() { return Math.ceil(total() / bk.players / 10) * 10; }
+  function deposit() { return Math.round(total() * 0.3 / 10) * 10; }
+  function dueNow() { return bk.split ? perHead() : bk.pay === 'deposit' ? deposit() : total(); }
+  function mateName(i) { return FL.PLAYERS[i] || 'Player ' + (i + 1); }
+
+  function openBooking(turfId, pitchId, start, off) {
+    var t = FL.turfById(turfId);
+    var pitch = pitchId ? FL.pitchOf(t, pitchId) : (t.pitches.find(p => F.size === 'any' || p.size === F.size) || t.pitches[0]);
+    bk = {
+      turfId: t.id, pitchId: pitch.id, off: off != null ? off : F.off, dur: 60, start: null, step: 1, hold: null,
+      team: store.get('team', 'Friday Night FC'), players: pitch.size * 2, addons: {}, split: false, pay: 'deposit', method: 'bkash',
+      paid: {}, code: code(5), notice: null, result: null
+    };
+    if (start != null && FL.isFree(t.id, pitch.id, bkKey(), start, 60)) bk.start = start;
+    $('#book-title').textContent = t.name;
+    $('#book-sub').textContent = t.area + '. Rated ' + t.rating.toFixed(1) + ' by ' + t.reviews + ' players.';
+    renderBook();
+    openDrawer($('#book'));
+  }
+
+  function renderBook() {
+    if (!bk) return;
+    $$('#steps li').forEach(li => {
+      var n = +li.dataset.step;
+      li.classList.toggle('is-on', n === bk.step);
+      li.classList.toggle('is-done', n < bk.step);
+      if (n === bk.step) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+    });
+    var body = $('#book-body'), foot = $('#book-foot');
+    var keepScroll = body.scrollTop, sameStep = body.dataset.step === String(bk.step);
+    body.innerHTML = [null, step1, step2, step3, step4][bk.step]();
+    foot.innerHTML = [null, foot1, foot2, foot3, foot4][bk.step]();
+    if (sameStep) { body.scrollTop = keepScroll; $$('.dr-pane', body).forEach(p => p.style.animation = 'none'); }
+    else body.scrollTop = 0;
+    body.dataset.step = bk.step;
+    if (justTaken != null) {
+      var j = $('.slot[data-start="' + justTaken + '"]', body);
+      if (j) j.classList.add('just-taken');
+      justTaken = null;
+    }
+  }
+
+  /* ---------- step 1: pick a slot ---------- */
+  function step1() {
+    var t = bkTurf(), pitch = bkPitch(), key = bkKey();
+    var h = '<div class="dr-pane">';
+    if (bk.notice) h += '<p class="notice notice-' + bk.notice.kind + '" role="status">' + esc(bk.notice.text) + '</p>';
+    if (t.pitches.length > 1) {
+      h += '<section><h3 class="bk-h">Pitch</h3><div class="seg">' + t.pitches.map(p =>
+        '<button type="button" data-pitch="' + p.id + '" aria-pressed="' + (p.id === bk.pitchId) + '">' + esc(p.name) + ', ' + p.size + '-a-side</button>').join('') + '</div></section>';
+    }
+    h += '<section><h3 class="bk-h">Day</h3><div class="dates">' + dateChips(bk.off) + '</div></section>';
+    h += '<section><h3 class="bk-h">How long</h3><div class="seg">' + [60, 90, 120].map(d =>
+      '<button type="button" data-dur="' + d + '" aria-pressed="' + (d === bk.dur) + '">' + FL.durLabel(d) + '</button>').join('') + '</div></section>';
+
+    var periods = '', any = false;
+    PERIODS.forEach(pr => {
+      var chips = '';
+      for (var s = pr[1]; s < pr[2]; s += 60) {
+        var st = FL.slotState(t.id, pitch.id, key, s, bk.dur, bk.hold && bk.hold.id);
+        if (st === 'past' || st === 'closed') continue;
+        var pi = FL.priceInfo(t.id, pitch, key, s, bk.dur), c = FL.clock(s), free = st === 'free';
+        chips += '<button type="button" class="slot' + (pi.peak ? ' is-peak' : '') + '" data-start="' + s + '" aria-pressed="' + (s === bk.start) + '"' + (free ? '' : ' disabled') +
+          ' aria-label="' + FL.time(s) + ', ' + (free ? FL.money(pi.price) : st === 'held' ? 'on hold' : 'booked') + '">' +
+          '<b>' + c.t + '<i>' + c.ap + '</i></b><span>' + (free ? FL.money(pi.price) : st === 'held' ? 'On hold' : 'Booked') + '</span>' +
+          (pi.deal && free ? '<em class="tag">−20%</em>' : '') + '</button>';
+      }
+      if (chips) { any = true; periods += '<div class="period"><h4>' + pr[0] + '</h4><div class="slot-grid">' + chips + '</div></div>'; }
+    });
+    h += '<section><h3 class="bk-h">Kick-off <small>' + FL.durLabel(bk.dur) + ' on ' + esc(pitch.name) + ', ' + FL.dateShort(key) + '</small></h3>' +
+      '<p class="slot-legend"><span><i></i>Open</span><span><i class="lg-peak"></i>Peak rate</span><span><i class="lg-taken"></i>Booked</span></p>' +
+      (any ? periods : '<p class="notice notice-info">No more slots this day. Pick another day above.</p>') + '</section>';
+    return h + '</div>';
+  }
+  function foot1() {
+    if (bk.start == null) return '<div class="foot-sum">Pick a kick-off time to see the price.</div><button type="button" class="btn btn-primary btn-lg" disabled>Hold this slot</button>';
+    return '<div class="foot-sum"><b>' + FL.money(slotPrice()) + '</b>' + FL.dateShort(bkKey()) + ', ' + FL.range(bk.start, bk.start + bk.dur) + '</div>' +
+      '<button type="button" class="btn btn-primary btn-lg" data-act="hold">Hold this slot</button>';
+  }
+
+  /* ---------- step 2: squad and extras ---------- */
+  function step2() {
+    var pitch = bkPitch();
+    var h = '<div class="dr-pane">';
+    h += '<p class="notice notice-ok">' + esc(pitch.name) + ', ' + FL.dateShort(bkKey()) + ', ' + FL.range(bk.start, bk.start + bk.dur) +
+      ' is held for you. Finish before the timer runs out. <button type="button" class="link-btn" data-act="change">Change slot</button></p>';
+    h += '<section><label for="bk-team">Team name<input type="text" id="bk-team" value="' + esc(bk.team) + '" maxlength="32"></label>' +
+      '<p class="form-err" id="bk-team-err" hidden>Add a team name. It goes on your match pass.</p></section>';
+    h += '<section class="row-between"><div><h3 class="bk-h" style="margin:0">Players</h3><p class="muted">' + pitch.size + '-a-side, subs included</p></div>' +
+      '<div class="stepper"><button type="button" data-act="minus" aria-label="Fewer players">−</button><output id="bk-players" aria-live="polite">' + bk.players + '</output>' +
+      '<button type="button" data-act="plus" aria-label="More players">+</button></div></section>';
+    h += '<section><h3 class="bk-h">Extras</h3><div class="addons">' + ADDONS.map(a =>
+      '<label class="addon"><input type="checkbox" data-addon="' + a.id + '"' + (bk.addons[a.id] ? ' checked' : '') + '>' +
+      '<span class="box" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></span>' +
+      '<span class="addon-t">' + a.name + '<span class="addon-d">' + a.desc + '</span></span><span class="addon-p">' + FL.money(a.price) + '</span></label>').join('') + '</div></section>';
+    h += '<section class="split" id="split">' + splitInner() + '</section>';
+    return h + '</div>';
+  }
+  function splitInner() {
+    var h = '<div class="rule-switch"><span id="split-l"><b style="color:var(--chalk)">Split the cost with your squad</b><br>Everyone pays their share from one link</span>' +
+      '<button type="button" class="switch" role="switch" aria-checked="' + bk.split + '" aria-labelledby="split-l" data-act="split"><i></i></button></div>';
+    if (!bk.split) return h;
+    var per = perHead(), paidN = paidCount();
+    h += '<div class="row-between"><span class="muted">Each player pays</span><b class="split-per" style="font-family:var(--display);font-size:28px">' + FL.money(per) + '</b></div>';
+    h += '<div class="share"><code id="share-link">pay.floodlit.demo/' + bk.code + '</code><button type="button" class="btn btn-ghost" data-act="copy-link">Copy link</button></div>';
+    h += '<div><div class="row-between muted" style="margin-bottom:8px"><span id="mates-count">' + paidN + ' of ' + (bk.players - 1) + ' teammates paid</span><span id="mates-sum">' + FL.money(paidN * per) + ' collected</span></div>' +
+      '<div class="bar"><i id="mates-bar" style="width:' + (paidN / Math.max(1, bk.players - 1) * 100) + '%"></i></div></div>';
+    h += '<ul class="mates" id="mates">';
+    for (var i = 0; i < bk.players; i++) {
+      var nm = mateName(i);
+      h += '<li data-i="' + i + '" class="' + (bk.paid[i] ? 'paid' : '') + '"><i>' + esc(nm[0]) + '</i><span>' + esc(nm) + (i === 0 ? ', pays at checkout' : '') + '</span></li>';
+    }
+    return h + '</ul>';
+  }
+  function paidCount() { var n = 0; for (var i = 1; i < bk.players; i++) if (bk.paid[i]) n++; return n; }
+  function foot2() {
+    return '<div class="foot-sum"><b>' + FL.money(total()) + '</b>Slot ' + FL.money(slotPrice()) + (extrasTotal() ? ' plus extras ' + FL.money(extrasTotal()) : '') + '</div>' +
+      '<button type="button" class="btn btn-primary btn-lg" data-act="to-pay">Continue to payment</button>';
+  }
+  function refreshStep2Money() {
+    var s = $('#split'); if (s) s.innerHTML = splitInner();
+    $('#book-foot').innerHTML = foot2();
+  }
+
+  function startMates() {
+    stopMates();
+    matesTimer = setInterval(() => {
+      if (!bk || !bk.split || bk.step > 3) return stopMates();
+      var unpaid = [];
+      for (var i = 1; i < bk.players; i++) if (!bk.paid[i]) unpaid.push(i);
+      if (!unpaid.length) return stopMates();
+      var k = unpaid[Math.floor(Math.random() * unpaid.length)];
+      bk.paid[k] = true;
+      var li = $('#mates [data-i="' + k + '"]');
+      if (li) { li.classList.add('paid', 'just'); }
+      var n = paidCount(), per = perHead();
+      var c = $('#mates-count'); if (c) c.textContent = n + ' of ' + (bk.players - 1) + ' teammates paid';
+      var sm = $('#mates-sum'); if (sm) sm.textContent = FL.money(n * per) + ' collected';
+      var bar = $('#mates-bar'); if (bar) bar.style.width = (n / Math.max(1, bk.players - 1) * 100) + '%';
+      var sq = $('#squad-paid'); if (sq) sq.textContent = n + ' of ' + (bk.players - 1) + ' teammates have paid ' + FL.money(n * per) + ' so far.';
+    }, 2300);
+  }
+  function stopMates() { clearInterval(matesTimer); matesTimer = null; }
+
+  /* ---------- step 3: pay ---------- */
+  var ICONS = {
+    bkash: '<svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10 18.5h4"/></svg>',
+    nagad: '<svg viewBox="0 0 24 24"><path d="M3 7.5h15a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3z"/><path d="M3 7.5 15 3.5v4"/><circle cx="16.5" cy="14" r="1.2"/></svg>',
+    card: '<svg viewBox="0 0 24 24"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 9.5h19M6 15h4"/></svg>'
+  };
+  function step3() {
+    var pitch = bkPitch(), t = bkTurf();
+    var rows = [
+      ['Pitch', esc(t.name) + ', ' + esc(pitch.name)],
+      ['When', FL.dateShort(bkKey()) + ', ' + FL.range(bk.start, bk.start + bk.dur)],
+      ['Team', esc(bk.team) + ', ' + bk.players + ' players'],
+      ['Slot', FL.money(slotPrice())]
+    ];
+    ADDONS.forEach(a => { if (bk.addons[a.id]) rows.push([a.name, FL.money(a.price)]); });
+    var h = '<div class="dr-pane"><section><h3 class="bk-h">Summary</h3><ul class="summary">' +
+      rows.map(r => '<li><span>' + r[0] + '</span><span>' + r[1] + '</span></li>').join('') +
+      '<li class="total"><span>Total</span><span>' + FL.money(total()) + '</span></li></ul></section>';
+    if (bk.split) {
+      h += '<p class="notice notice-info">You pay your share of ' + FL.money(perHead()) + ' now. <span id="squad-paid">' + paidCount() + ' of ' + (bk.players - 1) +
+        ' teammates have paid ' + FL.money(paidCount() * perHead()) + ' so far.</span> Unpaid shares are settled at the gate.</p>';
+    } else {
+      h += '<section><h3 class="bk-h">Pay now</h3><div class="choices">' +
+        choice('pay', 'deposit', bk.pay === 'deposit', '30% deposit', 'Pay the rest at the turf before kick-off', FL.money(deposit())) +
+        choice('pay', 'full', bk.pay === 'full', 'Full amount', 'Nothing to pay at the gate', FL.money(total())) +
+        '</div></section>';
+    }
+    h += '<section><h3 class="bk-h">Payment method</h3><div class="methods">' +
+      Object.keys(METHODS).map(m => '<label class="method"><input type="radio" name="method" value="' + m + '"' + (bk.method === m ? ' checked' : '') + '>' +
+        ICONS[m] + '<span>' + (m === 'card' ? 'Card' : METHODS[m]) + '</span><small>' + (m === 'card' ? 'Visa, Mastercard' : 'Mobile wallet') + '</small></label>').join('') + '</div></section>';
+    h += '<p class="notice notice-info">Demo mode. No money moves and no payment details are collected.</p>';
+    return h + '</div>';
+  }
+  function choice(name, val, checked, title, desc, price) {
+    return '<label class="choice"><input type="radio" name="' + name + '" value="' + val + '"' + (checked ? ' checked' : '') + '><span class="dot" aria-hidden="true"></span>' +
+      '<span><span class="choice-t">' + title + '</span><span class="choice-d">' + desc + '</span></span><span class="choice-p">' + price + '</span></label>';
+  }
+  function foot3() {
+    return '<div class="foot-sum"><b>' + FL.money(dueNow()) + '</b>Due now by ' + (bk.method === 'card' ? 'card' : METHODS[bk.method]) + '</div>' +
+      '<button type="button" class="btn btn-primary btn-lg" data-act="pay">Pay ' + FL.money(dueNow()) + '</button>';
+  }
+
+  /* ---------- step 4: match pass ---------- */
+  function qrSVG(b) {
+    try {
+      if (window.qrcode) {
+        var q = window.qrcode(0, 'M');
+        q.addData('FLOODLIT:' + b.id + ':' + b.key + ':' + b.start);
+        q.make();
+        return q.createSvgTag({ cellSize: 4, margin: 0, scalable: true, alt: 'QR code for booking ' + b.id });
+      }
+    } catch (e) { /* fall through */ }
+    return '<div class="qr-fallback">' + esc(b.id) + '</div>';
+  }
+  function stamp(key, min) {
+    var d = FL.fromKey(key); d.setHours(0, 0, 0, 0); d.setMinutes(min);
+    return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
+  }
+  function gcal(b) {
+    var t = FL.turfById(b.turfId), p = FL.pitchOf(t, b.pitchId), e = encodeURIComponent;
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + e('Football: ' + b.team) +
+      '&dates=' + stamp(b.key, b.start) + '/' + stamp(b.key, b.end) + '&ctz=Asia/Dhaka' +
+      '&location=' + e(t.name + ', ' + t.area + ', Dhaka') + '&details=' + e('Floodlit booking ' + b.id + ', ' + p.name);
+  }
+  function wa(b) {
+    var t = FL.turfById(b.turfId);
+    return 'https://wa.me/?text=' + encodeURIComponent('Game on! ' + b.team + ' at ' + t.name + ' (' + t.area + '), ' + FL.dateShort(b.key) + ' at ' + FL.time(b.start) + '. Booking ' + b.id);
+  }
+  function step4() {
+    var b = bk.result, t = FL.turfById(b.turfId), p = FL.pitchOf(t, b.pitchId);
+    var h = '<div class="dr-pane"><div class="pass-wrap"><article class="pass" aria-label="Match pass">' +
+      '<div class="pass-top"><h3 class="pass-turf">' + esc(t.name) + '</h3><p class="pass-where">' + esc(t.area) + ', ' + esc(p.name) + ', ' + p.size + '-a-side</p>' +
+      '<dl class="pass-grid">' +
+      '<div><dt>Date</dt><dd>' + FL.dateShort(b.key) + '</dd></div>' +
+      '<div><dt>Kick-off</dt><dd>' + FL.time(b.start) + '</dd></div>' +
+      '<div><dt>Full time</dt><dd>' + FL.time(b.end) + '</dd></div>' +
+      '<div><dt>Team</dt><dd>' + esc(b.team) + '</dd></div>' +
+      '<div><dt>Players</dt><dd>' + b.players + '</dd></div>' +
+      '<div><dt>Paid now</dt><dd>' + FL.money(b.paidNow) + '</dd></div></dl></div>' +
+      '<div class="pass-tear" aria-hidden="true"></div>' +
+      '<div class="pass-bot"><div class="qr">' + qrSVG(b) + '</div><div class="pass-id"><span>Booking ID</span><b id="pass-id">' + esc(b.id) + '</b>' +
+      '<span>Show this at the gate. Arrive 10 minutes early to warm up.</span></div></div></article></div>';
+    var rest = b.total - b.paidNow;
+    if (rest > 0) {
+      h += '<p class="notice notice-info">' + (b.payMode === 'split'
+        ? 'Your squad link stays open until kick-off. Anything unpaid, ' + FL.money(rest) + ' at most, is settled at the gate.'
+        : 'Pay the remaining ' + FL.money(rest) + ' at the turf before kick-off.') + '</p>';
+    }
+    h += '<div class="pass-actions"><a class="btn btn-ghost" target="_blank" rel="noopener" href="' + gcal(b) + '">Add to Google Calendar</a>' +
+      '<a class="btn btn-ghost" target="_blank" rel="noopener" href="' + wa(b) + '">Share on WhatsApp</a>' +
+      '<button type="button" class="btn btn-ghost" data-act="copy-id">Copy booking ID</button></div>';
+    return h + '</div>';
+  }
+  function foot4() {
+    return '<button type="button" class="btn btn-ghost" data-act="see-mine">View my bookings</button><button type="button" class="btn btn-primary btn-lg" data-act="done">Done</button>';
+  }
+
+  /* ---------- holds ---------- */
+  function placeHold() {
+    bk.hold = { id: 'H' + Date.now(), turfId: bk.turfId, pitchId: bk.pitchId, key: bkKey(), start: bk.start, end: bk.start + bk.dur, until: Date.now() + HOLD_MS };
+    FL.holds.push(bk.hold);
+    $('#hold').hidden = false;
+    tickHold();
+    holdTimer = setInterval(tickHold, 1000);
+  }
+  function releaseHold() {
+    if (bk && bk.hold) { var h = bk.hold; FL.holds = FL.holds.filter(x => x !== h); bk.hold = null; }
+    clearInterval(holdTimer); holdTimer = null;
+    var el = $('#hold'); el.hidden = true; el.classList.remove('is-low');
+  }
+  function tickHold() {
+    if (!bk || !bk.hold) return;
+    var ms = bk.hold.until - Date.now();
+    if (ms <= 0) {
+      releaseHold(); stopMates();
+      bk.step = 1; bk.start = null;
+      bk.notice = { kind: 'warn', text: 'Your 10-minute hold ran out, so the slot went back on sale. Pick a time to hold it again.' };
+      renderBook(); FL.emit('change');
+      return;
+    }
+    var s = Math.ceil(ms / 1000);
+    $('#hold-time').textContent = Math.floor(s / 60) + ':' + pad(s % 60);
+    $('#hold-ring').style.strokeDashoffset = (94.25 * (1 - ms / HOLD_MS)).toFixed(2);
+    $('#hold').classList.toggle('is-low', s <= 60);
+  }
+
+  function confirmBooking() {
+    var t = bkTurf(), pitch = bkPitch();
+    var b = {
+      id: 'FL-' + code(5), turfId: t.id, pitchId: pitch.id, key: bkKey(), start: bk.start, end: bk.start + bk.dur,
+      team: bk.team, players: bk.players, addons: ADDONS.filter(a => bk.addons[a.id]).map(a => a.name),
+      total: total(), price: total(), paidNow: dueNow(), payMode: bk.split ? 'split' : bk.pay, method: bk.method,
+      paid: bk.split ? 'split' : bk.pay, status: 'confirmed', source: 'online', mine: true, created: Date.now()
+    };
+    releaseHold(); stopMates();
+    FL.addBooking(b.turfId, b.pitchId, b.key, b);
+    FL.my.unshift(b);
+    saveMy(); updateBadge(true);
+    store.set('team', bk.team);
+    bk.result = b; bk.step = 4;
+    renderBook();
+    confetti();
+    FL.lastBooked = b;
+    FL.emit('change', { booked: b });
+  }
+
+  function confetti() {
+    if (reduce) return;
+    var c = $('#confetti'), dr = $('#book'), r = dr.getBoundingClientRect();
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    c.width = r.width * dpr; c.height = r.height * dpr;
+    var x = c.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var cols = ['#FFC24B', '#F1F4EA', '#3FBF7F', '#8CCBFF'], parts = [];
+    for (var i = 0; i < 140; i++) {
+      parts.push({ x: r.width / 2 + (Math.random() - 0.5) * 80, y: r.height * 0.3, vx: (Math.random() - 0.5) * 14, vy: -Math.random() * 12 - 4,
+        w: 4 + Math.random() * 5, h: 7 + Math.random() * 8, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 0.35, c: cols[i % 4] });
+    }
+    var start = performance.now();
+    (function frame(now) {
+      x.clearRect(0, 0, r.width, r.height);
+      var alive = false;
+      parts.forEach(p => {
+        p.vy += 0.38; p.vx *= 0.985; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+        if (p.y < r.height + 20) alive = true;
+        x.save(); x.translate(p.x, p.y); x.rotate(p.rot); x.fillStyle = p.c;
+        x.fillRect(-p.w / 2, -p.h / 2, p.w, Math.max(1, p.h * Math.abs(Math.cos(p.rot * 2))));
+        x.restore();
+      });
+      if (alive && now - start < 3600) requestAnimationFrame(frame); else x.clearRect(0, 0, r.width, r.height);
+    })(start);
+  }
+
+  function bindBooking() {
+    var dr = $('#book');
+    dr.addEventListener('click', e => {
+      if (!bk) return;
+      var el;
+      if ((el = e.target.closest('[data-pitch]')) && bk.step === 1) {
+        bk.pitchId = el.dataset.pitch; bk.players = bkPitch().size * 2; bk.notice = null;
+        if (bk.start != null && !FL.isFree(bk.turfId, bk.pitchId, bkKey(), bk.start, bk.dur)) bk.start = null;
+        return renderBook();
+      }
+      if ((el = e.target.closest('[data-off]')) && bk.step === 1) {
+        bk.off = +el.dataset.off; bk.notice = null;
+        if (bk.start != null && !FL.isFree(bk.turfId, bk.pitchId, bkKey(), bk.start, bk.dur)) bk.start = null;
+        return renderBook();
+      }
+      if ((el = e.target.closest('[data-dur]')) && bk.step === 1) {
+        bk.dur = +el.dataset.dur; bk.notice = null;
+        if (bk.start != null && !FL.isFree(bk.turfId, bk.pitchId, bkKey(), bk.start, bk.dur)) bk.start = null;
+        return renderBook();
+      }
+      if ((el = e.target.closest('.slot[data-start]')) && bk.step === 1 && !el.disabled) {
+        var s = +el.dataset.start;
+        bk.start = bk.start === s ? null : s; bk.notice = null;
+        return renderBook();
+      }
+      el = e.target.closest('[data-act]');
+      if (!el) { if (e.target.closest('[data-close]')) closeDrawer(); return; }
+      var act = el.dataset.act;
+      if (act === 'hold') {
+        if (!FL.isFree(bk.turfId, bk.pitchId, bkKey(), bk.start, bk.dur)) {
+          justTaken = bk.start; bk.start = null;
+          bk.notice = { kind: 'warn', text: 'Someone else just took that slot. Pick another time.' };
+          return renderBook();
+        }
+        placeHold(); bk.step = 2; bk.notice = null; renderBook(); FL.emit('change');
+        if (bk.split) startMates();
+      } else if (act === 'change') {
+        releaseHold(); stopMates(); bk.step = 1; renderBook(); FL.emit('change');
+      } else if (act === 'minus' || act === 'plus') {
+        var max = bkPitch().size * 2 + 6;
+        bk.players = Math.max(2, Math.min(max, bk.players + (act === 'plus' ? 1 : -1)));
+        $('#bk-players').textContent = bk.players;
+        refreshStep2Money();
+      } else if (act === 'split') {
+        bk.split = !bk.split;
+        if (bk.split) startMates(); else stopMates();
+        refreshStep2Money();
+      } else if (act === 'copy-link') {
+        copyText('https://pay.floodlit.demo/' + bk.code, 'Squad payment link copied.', $('#share-link'));
+      } else if (act === 'to-pay') {
+        var nm = $('#bk-team').value.trim();
+        if (!nm) { $('#bk-team-err').hidden = false; $('#bk-team').focus(); return; }
+        bk.team = nm; bk.step = 3; renderBook();
+      } else if (act === 'pay') {
+        el.disabled = true;
+        el.innerHTML = '<span class="spinner" aria-hidden="true"></span>Confirming payment';
+        setTimeout(confirmBooking, reduce ? 300 : 1700);
+      } else if (act === 'copy-id') {
+        copyText(bk.result.id, 'Booking ID copied.', $('#pass-id'));
+      } else if (act === 'see-mine') {
+        closeDrawer(); setTimeout(openMine, reduce ? 0 : 420);
+      } else if (act === 'done') {
+        closeDrawer();
+      }
+    });
+    dr.addEventListener('change', e => {
+      if (!bk) return;
+      var t = e.target;
+      if (t.dataset.addon) { bk.addons[t.dataset.addon] = t.checked; refreshStep2Money(); }
+      else if (t.name === 'pay') { bk.pay = t.value; $('#book-foot').innerHTML = foot3(); }
+      else if (t.name === 'method') { bk.method = t.value; $('#book-foot').innerHTML = foot3(); }
+    });
+    dr.addEventListener('input', e => {
+      if (bk && e.target.id === 'bk-team') { bk.team = e.target.value; if (e.target.value.trim()) $('#bk-team-err').hidden = true; }
+    });
+  }
+
+  /* =========================================================
+     Drawer plumbing
+     ========================================================= */
+  var openDr = null, lastFocus = null, hideT = 0;
+  function openDrawer(el) {
+    clearTimeout(hideT);
+    lastFocus = document.activeElement;
+    var sc = $('#scrim');
+    sc.hidden = false; el.hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => requestAnimationFrame(() => { sc.classList.add('is-open'); el.classList.add('is-open'); }));
+    openDr = el;
+    setTimeout(() => { var f = $('[data-close]', el); if (f) f.focus({ preventScroll: true }); }, 80);
+  }
+  function closeDrawer() {
+    if (!openDr) return;
+    var el = openDr, sc = $('#scrim');
+    if (el.id === 'book' && bk) {
+      if (bk.hold) { releaseHold(); toast('Hold released. The slot is open again.'); FL.emit('change'); }
+      stopMates();
+      bk = null;
+    }
+    el.classList.remove('is-open'); sc.classList.remove('is-open');
+    openDr = null;
+    document.body.style.overflow = '';
+    hideT = setTimeout(() => { el.hidden = true; if (!openDr) sc.hidden = true; }, reduce ? 0 : 500);
+    if (lastFocus && lastFocus.focus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+  }
+  document.addEventListener('keydown', e => {
+    if (!openDr) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeDrawer(); return; }
+    if (e.key === 'Tab') {
+      var f = $$('button:not([disabled]), a[href], input, select, [tabindex="0"]', openDr).filter(x => x.offsetParent !== null);
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+  $('#scrim').addEventListener('click', closeDrawer);
+  $$('#mine [data-close]').forEach(b => b.addEventListener('click', closeDrawer));
+
+  /* =========================================================
+     My bookings
+     ========================================================= */
+  var mineUI = { qr: {}, confirm: {} };
+  function kickoffDate(b) { var d = FL.fromKey(b.key); d.setHours(0, 0, 0, 0); d.setMinutes(b.start); return d; }
+  function refundText(b) {
+    var hrs = (kickoffDate(b) - Date.now()) / 36e5;
+    return hrs > 6
+      ? 'Kick-off is more than 6 hours away, so your ' + FL.money(b.paidNow) + ' goes back to your ' + (b.method === 'card' ? 'card' : METHODS[b.method]) + ' account.'
+      : 'Kick-off is less than 6 hours away, so the ' + FL.money(b.paidNow) + ' you paid is not refunded.';
+  }
+  function renderMine() {
+    var body = $('#mine-body');
+    if (!FL.my.length) {
+      body.innerHTML = '<div class="empty"><p>No bookings yet. Book a pitch and your match pass shows up here.</p>' +
+        '<button type="button" class="btn btn-primary" data-act="find">Find a pitch</button></div>';
+      return;
+    }
+    body.innerHTML = FL.my.map(b => {
+      var t = FL.turfById(b.turfId), p = FL.pitchOf(t, b.pitchId), cx = b.status === 'cancelled';
+      var h = '<article class="mb' + (cx ? ' is-cancelled' : '') + '" data-id="' + esc(b.id) + '">' +
+        '<div class="mb-top"><div><h3 class="mb-name">' + esc(t.name) + '</h3><p class="mb-when">' + FL.dateShort(b.key) + ', ' + FL.range(b.start, b.end) + ', ' + esc(p.name) + '</p></div>' +
+        '<span class="pill ' + (cx ? 'st-x' : 'st-ok') + '">' + (cx ? 'Cancelled' : 'Confirmed') + '</span></div>' +
+        '<p class="muted">' + esc(b.team) + '. Paid ' + FL.money(b.paidNow) + ' of ' + FL.money(b.total) + ' by ' + (b.method === 'card' ? 'card' : METHODS[b.method]) + '. Booking ID ' + esc(b.id) + '.</p>';
+      if (!cx && mineUI.qr[b.id]) h += '<div class="mb-qr"><div class="qr">' + qrSVG(b) + '</div><p class="muted">Show this code at the gate.</p></div>';
+      if (!cx && mineUI.confirm[b.id]) {
+        h += '<div class="mb-confirm notice notice-warn"><p>Cancel this booking? ' + refundText(b) + '</p>' +
+          '<div class="mb-actions"><button type="button" class="btn btn-ghost" data-act="keep">Keep booking</button><button type="button" class="btn btn-primary" data-act="do-cancel">Cancel booking</button></div></div>';
+      } else if (!cx) {
+        h += '<div class="mb-actions"><button type="button" class="btn btn-ghost" data-act="qr">' + (mineUI.qr[b.id] ? 'Hide match pass' : 'Show match pass') + '</button>' +
+          '<button type="button" class="btn btn-ghost" data-act="cancel">Cancel booking</button></div>';
+      }
+      return h + '</article>';
+    }).join('');
+  }
+  function openMine() { renderMine(); openDrawer($('#mine')); }
+  $('#open-mine').addEventListener('click', openMine);
+  $('#mine-body').addEventListener('click', e => {
+    var a = e.target.closest('[data-act]'); if (!a) return;
+    if (a.dataset.act === 'find') { closeDrawer(); location.hash = 'pitches'; return; }
+    var card = a.closest('[data-id]'), id = card && card.dataset.id, b = FL.my.find(x => x.id === id);
+    if (!b) return;
+    if (a.dataset.act === 'qr') mineUI.qr[id] = !mineUI.qr[id];
+    if (a.dataset.act === 'cancel') mineUI.confirm[id] = true;
+    if (a.dataset.act === 'keep') mineUI.confirm[id] = false;
+    if (a.dataset.act === 'do-cancel') {
+      b.status = 'cancelled'; mineUI.confirm[id] = false;
+      saveMy(); updateBadge(); FL.emit('change');
+      toast('Booking cancelled. The slot is open for other teams again.', 'ok');
+    }
+    renderMine();
+  });
+
+  /* =========================================================
+     Squad board
+     ========================================================= */
+  var squads = FL.squadSeed.map((s, i) => Object.assign({ id: 'q' + i, off: DEFAULT_OFF, mine: false, own: false }, s)).sort((a, b) => a.start - b.start);
+  function sqRow(q) {
+    var t = FL.turfById(q.turfId), c = FL.clock(q.start), left = q.need - q.joined;
+    var dots = '';
+    for (var i = 0; i < q.need; i++) dots += '<i class="' + (i < q.joined ? 'on' : '') + '"></i>';
+    var when = q.off === 0 ? (q.start >= 1020 ? 'Tonight' : 'Today') : 'Tomorrow';
+    var leftTxt = q.mine ? 'You\'re in. ' + (left > 0 ? left + ' more needed' : 'Squad complete') : left === 1 ? '1 spot left' : left > 0 ? left + ' of ' + q.need + ' spots left' : 'Squad complete';
+    var btn;
+    if (q.own) btn = '<span class="pill pill-demo">Your post</span>';
+    else if (q.mine) btn = '<button type="button" class="btn btn-ghost" data-join="' + q.id + '" aria-pressed="true">Leave game</button>';
+    else btn = '<button type="button" class="btn btn-ghost" data-join="' + q.id + '" aria-pressed="false"' + (left <= 0 ? ' disabled' : '') + '>' + (left <= 0 ? 'Full' : 'Join game') + '</button>';
+    return '<li class="sq' + (q.isNew ? ' is-new' : '') + '" data-q="' + q.id + '">' +
+      '<div class="sq-time"><b>' + c.t + '<i>' + c.ap + '</i></b><span>' + when + '</span></div>' +
+      '<div class="sq-main"><h3 class="sq-team">' + esc(q.team) + '</h3><p class="sq-where">' + esc(t.name) + ', ' + esc(t.area) + '</p>' +
+      (q.note ? '<p class="sq-note">' + esc(q.note) + '</p>' : '') + '</div>' +
+      '<div class="sq-need"><span class="pill lvl lvl-' + q.level.toLowerCase() + '">' + q.level + '</span>' +
+      '<div class="spots" aria-hidden="true">' + dots + '</div><p class="sq-left">' + leftTxt + '</p></div>' + btn + '</li>';
+  }
+  function renderSquads() { $('#squad-list').innerHTML = squads.map(sqRow).join(''); }
+  function popDot(q, idx) {
+    if (reduce) return;
+    var row = $('#squad-list [data-q="' + q.id + '"]'); if (!row) return;
+    var d = $$('.spots i', row)[idx]; if (!d) return;
+    d.classList.add('pop'); setTimeout(() => d.classList.remove('pop'), 320);
+  }
+  function bindSquads() {
+    $('#squad-list').addEventListener('click', e => {
+      var b = e.target.closest('[data-join]'); if (!b) return;
+      var q = squads.find(x => x.id === b.dataset.join), t = FL.turfById(q.turfId);
+      q.isNew = false;
+      if (q.mine) { q.mine = false; q.joined--; toast('You left ' + esc(q.team) + '\'s game.'); renderSquads(); }
+      else if (q.joined < q.need) {
+        q.mine = true; q.joined++;
+        toast('You\'re in. <b>' + esc(q.team) + '</b>, ' + FL.time(q.start) + ' at ' + esc(t.name) + '.', 'ok');
+        renderSquads(); popDot(q, q.joined - 1);
+      }
+    });
+    var ts = $('#pf-turf');
+    FL.turfs.forEach(t => { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name + ', ' + t.area; ts.appendChild(o); });
+    var tm = $('#pf-time');
+    for (var m = 17 * 60; m <= 25 * 60; m += 30) { var o = document.createElement('option'); o.value = m; o.textContent = FL.time(m); if (m === 20 * 60) o.selected = true; tm.appendChild(o); }
+    $('#pf-day').value = String(DEFAULT_OFF);
+
+    $('#post-form').addEventListener('submit', e => {
+      e.preventDefault();
+      var team = $('#pf-team').value.trim(), err = $('#pf-err');
+      if (!team) { err.textContent = 'Add a team name so players know who they\'re joining.'; err.hidden = false; $('#pf-team').focus(); return; }
+      err.hidden = true;
+      var q = {
+        id: 'q' + Date.now(), team: team, turfId: $('#pf-turf').value, off: +$('#pf-day').value, start: +$('#pf-time').value,
+        need: +$('#pf-need').value, joined: 0, level: $('#pf-level').value, note: $('#pf-note').value.trim(), own: true, mine: false, isNew: true
+      };
+      squads.forEach(s => s.isNew = false);
+      squads.unshift(q);
+      renderSquads();
+      $('#pf-team').value = ''; $('#pf-note').value = '';
+      toast('Posted. Players nearby can join <b>' + esc(team) + '</b> now.', 'ok');
+      // a couple of players join your post, to show the live board
+      var joins = Math.min(2, q.need);
+      for (var j = 0; j < joins; j++) {
+        setTimeout(() => {
+          if (q.joined >= q.need) return;
+          q.joined++; q.isNew = false;
+          var who = FL.pick(FL.PLAYERS.slice(1));
+          renderSquads(); popDot(q, q.joined - 1);
+          toast('<b>' + esc(who) + '</b> joined ' + esc(q.team) + '. ' + (q.need - q.joined ? (q.need - q.joined) + ' spot' + (q.need - q.joined > 1 ? 's' : '') + ' left.' : 'Squad complete.'), 'live');
+        }, 6000 + j * 7000);
+      }
+    });
+    $('#pf-team').addEventListener('input', () => { $('#pf-err').hidden = true; });
+  }
+
+  /* =========================================================
+     Live activity: other teams booking while you browse
+     ========================================================= */
+  var liveCount = 0;
+  function liveTick() {
+    setTimeout(liveTick, 17000 + Math.random() * 14000);
+    if (document.hidden || liveCount >= 14) return;
+    var t = FL.pick(FL.turfs), p = FL.pick(t.pitches);
+    var off = DEFAULT_OFF + (Math.random() < 0.6 ? 0 : 1), key = FL.dateKey(off);
+    var dur = Math.random() < 0.6 ? 60 : 90, starts = [];
+    for (var s = 1020; s + dur <= FL.CLOSE && s <= 1440; s += 60) if (FL.isFree(t.id, p.id, key, s, dur)) starts.push(s);
+    if (!starts.length) return;
+    var st = FL.pick(starts), team = FL.pick(FL.TEAMS);
+    FL.addBooking(t.id, p.id, key, {
+      id: 'L' + Date.now().toString(36).toUpperCase(), start: st, end: st + dur, team: team, source: 'online', status: 'confirmed',
+      price: FL.priceInfo(t.id, p, key, st, dur).price, paid: 'deposit', live: true
+    });
+    liveCount++;
+    toast('<b>' + esc(team) + '</b> just booked ' + esc(p.name) + ' at ' + esc(t.name) + ', ' + (off === 0 ? 'today' : off === 1 ? 'tomorrow' : FL.dayLabel(off)) + ' ' + FL.time(st) + '.', 'live');
+    FL.emit('change', { live: { turfId: t.id, pitchId: p.id, key: key, start: st, end: st + dur } });
+  }
+
+  FL.on('change', () => {
+    renderResults(false);
+    updateHero();
+    if (bk && bk.step === 1) {
+      if (bk.start != null && !FL.isFree(bk.turfId, bk.pitchId, bkKey(), bk.start, bk.dur)) {
+        justTaken = bk.start;
+        bk.notice = { kind: 'warn', text: 'Another team just booked ' + FL.time(bk.start) + '. Pick another time.' };
+        bk.start = null;
+      }
+      renderBook();
+    }
+  });
+
+  /* =========================================================
+     Views: player vs owner, routed on the URL hash
+     ========================================================= */
+  var wasOwner = false;
+  function route() {
+    var owner = location.hash === '#owner';
+    if (openDr && owner !== wasOwner) closeDrawer();
+    $('#player-view').hidden = owner;
+    $('#owner-view').hidden = !owner;
+    var sw = $('#view-switch');
+    $('#view-switch-l').textContent = owner ? 'Player' : 'Owner';
+    sw.setAttribute('href', owner ? '#play' : '#owner');
+    $$('[data-player-link]').forEach(a => { a.hidden = owner; });
+    if (FL.heroPause) FL.heroPause(owner);
+    if (owner) {
+      if (FL.renderOwner) FL.renderOwner();
+      window.scrollTo(0, 0);
+    } else if (wasOwner) {
+      var id = location.hash.slice(1), el = id && id !== 'play' ? document.getElementById(id) : null;
+      if (el) requestAnimationFrame(() => el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }));
+      else window.scrollTo(0, 0);
+    }
+    wasOwner = owner;
+  }
+  window.addEventListener('hashchange', route);
+
+  /* =========================================================
+     Start
+     ========================================================= */
+  bindFinder();
+  bindBooking();
+  bindSquads();
+  syncControls();
+  renderResults(true);
+  renderSquads();
+  updateHero();
+  updateBadge();
+  route();
+  setTimeout(liveTick, 9000);
+
+  FL.openBooking = openBooking;
+})(window.FL);
+
+</script>
+  <script>
+/* =========================================================
+   Floodlit — owner dashboard
+   Today's numbers, a live schedule, revenue and busy-hour charts,
+   walk-in bookings and pricing rules that players see instantly.
+   ========================================================= */
+(function (FL) {
+  'use strict';
+
+  var $ = (s, r) => (r || document).querySelector(s);
+  var $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  var esc = FL.esc;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var ownerTurf = 'skydeck';
+  var ownerOff = new Date().getHours() >= 20 ? 1 : 0;   // which day the schedule shows
+  var seen = null;      // booking ids already drawn on the timeline
+  var lastKPI = [];
+  function turf() { return FL.turfById(ownerTurf); }
+  function visible() { return !$('#owner-view').hidden; }
+
+  /* ---------- numbers for one day ---------- */
+  function dayStats(t, key) {
+    var s = { rev: 0, online: 0, walkin: 0, count: 0, walkins: 0, occ: 0 }, cap = 0;
+    t.pitches.forEach(p => {
+      FL.busy(t.id, p.id, key).forEach(b => {
+        s.count++; s.rev += b.price;
+        if (b.source === 'walkin') { s.walkin += b.price; s.walkins++; } else s.online += b.price;
+        var a = Math.max(b.start, 1020), e = Math.min(b.end, FL.CLOSE);
+        if (e > a) s.occ += e - a;
+      });
+      cap += FL.CLOSE - 1020;
+    });
+    s.occ = cap ? s.occ / cap : 0;
+    return s;
+  }
+
+  function delta(a, b, label, points) {
+    if (!b && !points) return 'No data for ' + label;
+    var v = points ? Math.round((a - b) * 100) : Math.round((a - b) / b * 100);
+    var up = v >= 0;
+    return '<span class="' + (up ? 'up' : 'down') + '">' + (up ? '▲' : '▼') + ' ' + Math.abs(v) + (points ? ' pts' : '%') + '</span> vs ' + label;
+  }
+
+  function renderHead() {
+    $('#owner-date').textContent = 'Today, ' + FL.dateFor(0).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '. Numbers update as bookings come in.';
+    var sel = $('#owner-turf');
+    if (!sel.options.length) {
+      FL.turfs.forEach(t => { var o = document.createElement('option'); o.value = t.id; o.textContent = t.name + ', ' + t.area; sel.appendChild(o); });
+      sel.addEventListener('change', () => { ownerTurf = sel.value; seen = null; lastKPI = []; renderAll(); });
+    }
+    sel.value = ownerTurf;
+  }
+  $('#tl-day').addEventListener('click', e => {
+    var b = e.target.closest('[data-off]'); if (!b) return;
+    ownerOff = +b.dataset.off; seen = null; renderTimeline(); renderWalkin(true);
+  });
+
+  function renderKPIs() {
+    var t = turf(), k = FL.dateKey(0), lk = FL.dateKey(-7);
+    var a = dayStats(t, k), b = dayStats(t, lk);
+    var label = 'last ' + FL.fromKey(lk).toLocaleDateString('en-GB', { weekday: 'long' });
+    var items = [
+      ['Revenue today', FL.money(a.rev), delta(a.rev, b.rev, label)],
+      ['Bookings today', String(a.count), a.walkins + ' walk-in' + (a.walkins === 1 ? '' : 's') + ', ' + (a.count - a.walkins) + ' online'],
+      ['Evening booked, 5 PM to 2 AM', Math.round(a.occ * 100) + '%', delta(a.occ, b.occ, label, true)],
+      ['Player rating', t.rating.toFixed(1), t.reviews + ' reviews']
+    ];
+    $('#kpis').innerHTML = items.map((it, i) =>
+      '<div class="kpi"><p class="kpi-l">' + it[0] + '</p><p class="kpi-v' + (lastKPI[i] && lastKPI[i] !== it[1] && !reduce ? ' tick' : '') + '">' + it[1] + '</p><p class="kpi-d">' + it[2] + '</p></div>').join('');
+    lastKPI = items.map(it => it[1]);
+  }
+
+  /* ---------- today's schedule ---------- */
+  var blocks = [];
+  function paidText(b) {
+    if (b.mine) return b.payMode === 'split' ? 'Split between players' : b.payMode === 'full' ? 'Paid in full' : 'Deposit paid';
+    return b.paid === 'full' ? 'Paid in full' : b.paid === 'deposit' ? 'Deposit paid' : 'Pays cash at the turf';
+  }
+  function renderTimeline() {
+    var t = turf(), k = FL.dateKey(ownerOff), span = FL.CLOSE - FL.OPEN;
+    $$('#tl-day button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.off === ownerOff)));
+    var pct = m => ((m - FL.OPEN) / span * 100).toFixed(3) + '%';
+    blocks = [];
+    var first = seen === null;
+    var nextSeen = new Set();
+
+    var hours = '';
+    for (var m = FL.OPEN; m <= FL.CLOSE; m += 120) {
+      var c = FL.clock(m);
+      var style = m === FL.CLOSE ? 'right:0;left:auto;transform:none' : 'left:' + pct(m);
+      hours += '<span style="' + style + '">' + c.t.replace(':00', '') + ' ' + c.ap + '</span>';
+    }
+    var tracks = t.pitches.map(p => {
+      var list = FL.busy(t.id, p.id, k).slice().sort((a, b) => a.start - b.start);
+      var bl = list.map(b => {
+        var i = blocks.push({ b: b, p: p }) - 1;
+        nextSeen.add(b.id);
+        var fresh = !first && !seen.has(b.id) && !reduce;
+        return '<button type="button" class="tl-b ' + (b.source === 'walkin' ? 'walkin' : 'online') + (b.mine ? ' mine' : '') + (fresh ? ' fresh' : '') + '"' +
+          ' style="left:' + pct(b.start) + ';width:calc(' + ((b.end - b.start) / span * 100).toFixed(3) + '% - 3px)" data-i="' + i + '"' +
+          ' aria-label="' + esc(b.team) + ', ' + FL.range(b.start, b.end) + ', ' + (b.source === 'walkin' ? 'walk-in' : 'online') + '">' +
+          '<b>' + esc(b.team) + '</b><span>' + FL.range(b.start, b.end) + '</span></button>';
+      }).join('');
+      return '<div class="tl-track"><span class="peak-zone" style="left:' + pct(1020) + ';width:' + ((1380 - 1020) / span * 100) + '%"></span>' + bl + '</div>';
+    }).join('');
+    var nm = FL.nowMin();
+    var now = ownerOff === 0 && nm >= FL.OPEN ? '<span class="tl-now" style="left:' + pct(nm) + '"></span>' : '';
+    $('#timeline').innerHTML =
+      '<div class="tl-labels">' + t.pitches.map(p => '<div>' + esc(p.name) + '<small>' + p.size + '-a-side</small></div>').join('') + '</div>' +
+      '<div class="tl-right"><div class="tl-hours">' + hours + '</div><div class="tl-tracks">' + tracks + '</div>' + now + '</div>';
+    seen = nextSeen;
+  }
+  function blockTip(el) {
+    var d = blocks[+el.dataset.i]; if (!d) return;
+    var b = d.b;
+    var src = b.source === 'walkin' ? 'Walk-in' : b.mine ? 'Booked during this demo' : 'Booked online';
+    return '<b>' + esc(b.team) + '</b><span>' + FL.range(b.start, b.end) + ', ' + esc(d.p.name) + '</span><br><span>' + src + '</span>' +
+      '<div class="tip-row"><span>' + paidText(b) + '</span><span>' + FL.money(b.price) + '</span></div>';
+  }
+
+  /* ---------- revenue, last 14 days ---------- */
+  var days = [];
+  function niceMax(v) {
+    if (v <= 0) return 1000;
+    var p = Math.pow(10, Math.floor(Math.log10(v))), n = v / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+  }
+  function kfmt(v) { return v === 0 ? '৳0' : v >= 1000 ? '৳' + (v / 1000).toFixed(v % 1000 ? 1 : 0) + 'k' : '৳' + v; }
+  function topRounded(x, y, w, h, r) {
+    r = Math.min(r, w / 2, h);
+    return 'M' + x + ',' + (y + h) + 'V' + (y + r) + 'Q' + x + ',' + y + ' ' + (x + r) + ',' + y + 'H' + (x + w - r) + 'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) + 'V' + (y + h) + 'Z';
+  }
+  function renderRevenue() {
+    var el = $('#rev-chart');
+    var W = Math.max(280, Math.floor(el.clientWidth || 600)), H = 250, m = { t: 14, r: 6, b: 30, l: 46 };
+    var t = turf();
+    days = [];
+    for (var i = -13; i <= 0; i++) {
+      var k = FL.dateKey(i), s = dayStats(t, k);
+      days.push({ k: k, off: i, on: s.online, wk: s.walkin, tot: s.online + s.walkin });
+    }
+    var max = niceMax(Math.max.apply(null, days.map(d => d.tot)));
+    var iw = W - m.l - m.r, ih = H - m.t - m.b, bw = iw / days.length;
+    var gap = Math.max(4, bw * 0.3), barW = Math.max(4, bw - gap);
+    var y = v => m.t + ih - v / max * ih;
+    var svg = '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Revenue for the last 14 days, split into online and walk-in">';
+    svg += '<g class="grid">';
+    for (var g = 0; g <= 4; g++) {
+      var v = max / 4 * g, yy = Math.round(y(v)) + 0.5;
+      svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + yy + '" y2="' + yy + '"/>';
+      svg += '<text x="' + (m.l - 8) + '" y="' + (yy + 4) + '" text-anchor="end">' + kfmt(v) + '</text>';
+    }
+    svg += '</g>';
+    var showEvery = bw < 26 ? 3 : 2;
+    days.forEach((d, i) => {
+      var x = m.l + i * bw + gap / 2, base = y(0);
+      var yOn = y(d.on), yTot = y(d.tot);
+      svg += '<g class="bar-g" data-i="' + i + '">';
+      if (d.wk > 0) {
+        svg += '<rect x="' + x.toFixed(1) + '" y="' + yOn.toFixed(1) + '" width="' + barW.toFixed(1) + '" height="' + Math.max(0, base - yOn).toFixed(1) + '" fill="var(--s-online)"/>';
+        var hW = Math.max(0, yOn - 2 - yTot);
+        if (hW > 0.5) svg += '<path d="' + topRounded(+x.toFixed(1), +yTot.toFixed(1), +barW.toFixed(1), +hW.toFixed(1), 4) + '" fill="var(--s-walkin)"/>';
+      } else if (d.on > 0) {
+        svg += '<path d="' + topRounded(+x.toFixed(1), +yOn.toFixed(1), +barW.toFixed(1), +(base - yOn).toFixed(1), 4) + '" fill="var(--s-online)"/>';
+      }
+      svg += '</g>';
+      var isToday = d.off === 0;
+      if (isToday || (days.length - 1 - i) % showEvery === 0) {
+        var lab = isToday ? 'Today' : String(FL.fromKey(d.k).getDate());
+        if (!isToday && (days.length - 1 - i) === showEvery && bw < 40) lab = String(FL.fromKey(d.k).getDate());
+        svg += '<text x="' + (x + barW / 2).toFixed(1) + '" y="' + (H - 10) + '" text-anchor="' + (isToday ? 'end' : 'middle') + '"' + (isToday ? ' class="today-l" dx="' + (barW / 2) + '"' : '') + '>' + lab + '</text>';
+      }
+      svg += '<rect class="hit" data-i="' + i + '" x="' + (m.l + i * bw).toFixed(1) + '" y="' + m.t + '" width="' + bw.toFixed(1) + '" height="' + ih + '" tabindex="0"' +
+        ' aria-label="' + esc(FL.dateShort(d.k)) + ': ' + FL.money(d.tot) + ' total"/>';
+    });
+    svg += '<line x1="' + m.l + '" x2="' + (W - m.r) + '" y1="' + (y(0) + 0.5) + '" y2="' + (y(0) + 0.5) + '" stroke="var(--rule-strong)"/>';
+    svg += '</svg>';
+    el.innerHTML = svg;
+  }
+  function revTip(i) {
+    var d = days[i]; if (!d) return '';
+    return '<b>' + FL.dateShort(d.k) + (d.off === 0 ? ', today so far' : '') + '</b>' +
+      '<div class="tip-row"><span><i style="background:var(--s-online)"></i>Online</span><span>' + FL.money(d.on) + '</span></div>' +
+      '<div class="tip-row"><span><i style="background:var(--s-walkin)"></i>Walk-in</span><span>' + FL.money(d.wk) + '</span></div>' +
+      '<div class="tip-row"><span>Total</span><span>' + FL.money(d.tot) + '</span></div>';
+  }
+
+  /* ---------- busiest hours heatmap (last 4 weeks) ---------- */
+  var heat = [];
+  var ORDER = [6, 0, 1, 2, 3, 4, 5]; // Bangladesh week starts Saturday
+  var DNAME = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var DLONG = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function renderHeat() {
+    var t = turf(), acc = {};
+    ORDER.forEach(d => { acc[d] = []; for (var h = 0; h < 20; h++) acc[d].push([0, 0]); });
+    for (var i = 1; i <= 28; i++) {
+      var k = FL.dateKey(-i), dow = FL.fromKey(k).getDay();
+      t.pitches.forEach(p => {
+        var busy = FL.seeded(t, p, k);
+        for (var h = 6; h < 26; h++) {
+          var s = h * 60, e = s + 60, occ = 0;
+          busy.forEach(b => { var o = Math.min(e, b.end) - Math.max(s, b.start); if (o > 0) occ += o; });
+          acc[dow][h - 6][0] += occ / 60; acc[dow][h - 6][1]++;
+        }
+      });
+    }
+    heat = [];
+    var html = '';
+    ORDER.forEach(d => {
+      html += '<span class="hl">' + DNAME[d] + '</span>';
+      acc[d].forEach((c, hi) => {
+        var v = c[1] ? c[0] / c[1] : 0, idx = heat.push({ d: d, h: hi + 6, v: v }) - 1;
+        html += '<button type="button" class="hc" data-i="' + idx + '" style="background:rgba(255,194,75,' + (0.06 + 0.94 * v).toFixed(3) + ')"' +
+          ' aria-label="' + DLONG[d] + ' ' + FL.time((hi + 6) * 60) + ', ' + Math.round(v * 100) + '% booked"></button>';
+      });
+    });
+    html += '<span></span>';
+    for (var h = 6; h < 26; h++) {
+      var lab = (h - 6) % 3 === 0 ? FL.clock(h * 60) : null;
+      html += '<span class="hx">' + (lab ? lab.t.replace(':00', '') + ' ' + lab.ap : '') + '</span>';
+    }
+    $('#heat').innerHTML = html;
+  }
+
+  /* ---------- walk-ins ---------- */
+  function renderWalkin(keep) {
+    var t = turf(), ps = $('#wi-pitch'), prevP = ps.value, prevS = $('#wi-start').value;
+    ps.innerHTML = t.pitches.map(p => '<option value="' + p.id + '">' + esc(p.name) + ', ' + p.size + '-a-side</option>').join('');
+    if (keep && t.pitches.some(p => p.id === prevP)) ps.value = prevP;
+    renderStarts(keep ? prevS : null);
+  }
+  function renderStarts(prev) {
+    var t = turf(), pid = $('#wi-pitch').value, dur = +$('#wi-dur').value, k = FL.dateKey(ownerOff), opts = '';
+    $('#wi-start-l').textContent = ownerOff === 0 ? 'Kick-off today' : 'Kick-off tomorrow';
+    for (var s = FL.OPEN; s + dur <= FL.CLOSE; s += 30) {
+      if (FL.isFree(t.id, pid, k, s, dur)) opts += '<option value="' + s + '">' + FL.range(s, s + dur) + '</option>';
+    }
+    var sel = $('#wi-start');
+    sel.innerHTML = opts || '<option value="">No free time left today for this length</option>';
+    sel.disabled = !opts;
+    if (prev && $('option[value="' + prev + '"]', sel)) sel.value = prev;
+  }
+  function bindWalkin() {
+    $('#wi-pitch').addEventListener('change', () => renderStarts());
+    $('#wi-dur').addEventListener('change', () => renderStarts($('#wi-start').value));
+    $('#wi-team').addEventListener('input', () => { $('#wi-err').hidden = true; });
+    $('#walkin').addEventListener('submit', e => {
+      e.preventDefault();
+      var err = $('#wi-err'), t = turf(), pid = $('#wi-pitch').value, p = FL.pitchOf(t, pid), dur = +$('#wi-dur').value;
+      var start = $('#wi-start').value, team = $('#wi-team').value.trim(), phone = $('#wi-phone').value.trim();
+      function fail(msg, el) { err.textContent = msg; err.hidden = false; if (el) el.focus(); }
+      if (!start) return fail('Pick a kick-off time. If none are listed, try a shorter length or another pitch.', $('#wi-dur'));
+      if (!team) return fail('Add a team name so you can find this booking later.', $('#wi-team'));
+      if (phone && !/^01\d{9}$/.test(phone)) return fail('Phone numbers have 11 digits and start with 01.', $('#wi-phone'));
+      start = +start;
+      var k = FL.dateKey(ownerOff);
+      if (!FL.isFree(t.id, pid, k, start, dur)) { renderStarts(); return fail('That time was just booked online. Pick another time.'); }
+      err.hidden = true;
+      FL.addBooking(t.id, pid, k, {
+        id: 'W' + Date.now().toString(36).toUpperCase(), start: start, end: start + dur, team: team, source: 'walkin', status: 'confirmed',
+        price: FL.priceInfo(t.id, p, k, start, dur).price, paid: 'cash', phone: phone
+      });
+      $('#wi-team').value = ''; $('#wi-phone').value = '';
+      FL.toast('Walk-in added: <b>' + esc(team) + '</b>, ' + esc(p.name) + ', ' + FL.range(start, start + dur) + '.', 'ok');
+      FL.emit('change');
+    });
+  }
+
+  /* ---------- pricing rules ---------- */
+  function nextDow(dow) { for (var i = 0; i < 7; i++) if (FL.dateFor(i).getDay() === dow) return FL.dateKey(i); return FL.dateKey(0); }
+  function renderPricing() {
+    var r = FL.pricing[ownerTurf];
+    $('#pr-base').value = r.base; $('#pr-peak').value = r.peak; $('#pr-late').value = r.late; $('#pr-wknd').value = r.weekend;
+    $('#pr-deal').setAttribute('aria-checked', String(!!r.morningDeal));
+    renderPricingOut();
+  }
+  function renderPricingOut() {
+    var r = FL.pricing[ownerTurf], d = FL.defaultPricing[ownerTurf], t = turf();
+    $('#pr-base-o').textContent = FL.money(r.base);
+    $('#pr-peak-o').textContent = '×' + r.peak.toFixed(2);
+    $('#pr-late-o').textContent = '×' + r.late.toFixed(2);
+    $('#pr-wknd-o').textContent = '+' + r.weekend + '%';
+    var p = t.pitches.find(x => x.size === 5) || t.pitches[0];
+    var tue = nextDow(2), fri = nextDow(5);
+    var rows = [['Tuesday, 8 AM', tue, 480], ['Tuesday, 8 PM', tue, 1200], ['Friday, 8 PM', fri, 1200], ['Friday, midnight', fri, 1440]];
+    $('#pr-preview').innerHTML = '<caption>What players pay for 1 hour on ' + esc(p.name) + '</caption><tbody>' + rows.map(row => {
+      var now = FL.priceInfo(t.id, p, row[1], row[2], 60, r).price, was = FL.priceInfo(t.id, p, row[1], row[2], 60, d).price;
+      return '<tr><td>' + row[0] + (now !== was ? ' <span class="muted">was ' + FL.money(was) + '</span>' : '') + '</td><td class="' + (now !== was ? 'chg' : '') + '">' + FL.money(now) + '</td></tr>';
+    }).join('') + '</tbody>';
+  }
+  var emitT = 0;
+  function bindPricing() {
+    function upd(field, el, num) {
+      el.addEventListener('input', () => {
+        FL.pricing[ownerTurf][field] = num(el.value);
+        renderPricingOut();
+        clearTimeout(emitT); emitT = setTimeout(() => FL.emit('change', { pricing: true }), 150);
+      });
+    }
+    upd('base', $('#pr-base'), v => +v);
+    upd('peak', $('#pr-peak'), v => +v);
+    upd('late', $('#pr-late'), v => +v);
+    upd('weekend', $('#pr-wknd'), v => +v);
+    $('#pr-deal').addEventListener('click', e => {
+      var r = FL.pricing[ownerTurf];
+      r.morningDeal = !r.morningDeal;
+      e.currentTarget.setAttribute('aria-checked', String(r.morningDeal));
+      renderPricingOut();
+      FL.emit('change', { pricing: true });
+      FL.toast(r.morningDeal ? 'Morning deal is on. Slots before noon show 20% off.' : 'Morning deal is off.', 'ok');
+    });
+  }
+
+  /* ---------- tooltips for timeline, chart and heatmap ---------- */
+  function bindTips() {
+    var view = $('#owner-view');
+    function tipFor(el) {
+      if (el.classList.contains('tl-b')) return blockTip(el);
+      if (el.classList.contains('hit')) return revTip(+el.dataset.i);
+      if (el.classList.contains('hc')) {
+        var c = heat[+el.dataset.i];
+        return '<b>' + DLONG[c.d] + ', ' + FL.range(c.h * 60, c.h * 60 + 60) + '</b><span>' + Math.round(c.v * 100) + '% booked on average</span>';
+      }
+      return '';
+    }
+    function mark(el, on) {
+      if (el.classList.contains('hit')) {
+        var g = $('#rev-chart .bar-g[data-i="' + el.dataset.i + '"]');
+        if (g) g.classList.toggle('is-hover', on);
+      }
+    }
+    var cur = null;
+    view.addEventListener('pointermove', e => {
+      var el = e.target.closest('.tl-b, .hit, .hc');
+      if (el !== cur) { if (cur) mark(cur, false); cur = el; if (el) mark(el, true); }
+      if (!el) return FL.hideTip();
+      FL.showTip(tipFor(el), e.clientX, e.clientY);
+    });
+    view.addEventListener('pointerleave', () => { if (cur) mark(cur, false); cur = null; FL.hideTip(); });
+    view.addEventListener('focusin', e => {
+      var el = e.target.closest('.tl-b, .hit, .hc'); if (!el) return;
+      var r = el.getBoundingClientRect();
+      mark(el, true);
+      FL.showTip(tipFor(el), r.left + r.width / 2, r.top);
+    });
+    view.addEventListener('focusout', e => { var el = e.target.closest('.tl-b, .hit, .hc'); if (el) mark(el, false); FL.hideTip(); });
+    window.addEventListener('scroll', FL.hideTip, { passive: true });
+  }
+
+  /* ---------- wiring ---------- */
+  function renderAll() {
+    // jump to the turf and day of a booking just made on the player side
+    if (FL.lastBooked) {
+      var lb = FL.lastBooked; FL.lastBooked = null;
+      var o = FL.offsetOf(lb.key);
+      if (o === 0 || o === 1) { ownerTurf = lb.turfId; ownerOff = o; seen = null; lastKPI = []; }
+    }
+    renderHead(); renderKPIs(); renderTimeline(); renderRevenue(); renderHeat(); renderWalkin(false); renderPricing();
+  }
+  FL.renderOwner = renderAll;
+
+  FL.on('change', d => {
+    if (!visible()) return;
+    renderKPIs(); renderTimeline(); renderRevenue(); renderWalkin(true);
+    if (d && d.live && d.live.turfId === ownerTurf && d.live.key === FL.dateKey(ownerOff)) {
+      var t = turf(), p = FL.pitchOf(t, d.live.pitchId);
+      FL.toast('New booking for your turf: ' + esc(p.name) + ', ' + FL.range(d.live.start, d.live.end) + '.', 'live');
+    }
+  });
+
+  var rt = 0;
+  window.addEventListener('resize', () => { if (!visible()) return; clearTimeout(rt); rt = setTimeout(renderRevenue, 150); });
+  setInterval(() => { if (visible()) renderTimeline(); }, 60000);
+
+  bindWalkin();
+  bindPricing();
+  bindTips();
+  if (location.hash === '#owner') renderAll();
+})(window.FL);
+
+</script>
 </body>
 </html>
