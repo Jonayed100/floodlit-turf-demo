@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Floodlit Turf Booking</title>
+  <meta name="claude:viewport-fit-sides" content="cover">
+  <meta name="description" content="Floodlit: book five-a-side turfs across Dhaka with live slots, squad split payments and a turf owner dashboard. Product demo.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800;900&family=Onest:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip" href="#pitches">Skip to pitches</a>
+
+  <!-- ================= NAV ================= -->
+  <header class="nav" id="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#play" aria-label="Floodlit home">
+        <svg class="brand-mark" viewBox="0 0 28 28" aria-hidden="true">
+          <rect x="3" y="3" width="6" height="5" rx="1.5"/><rect x="11" y="3" width="6" height="5" rx="1.5"/><rect x="19" y="3" width="6" height="5" rx="1.5"/>
+          <rect x="3" y="10" width="6" height="5" rx="1.5"/><rect x="11" y="10" width="6" height="5" rx="1.5"/><rect x="19" y="10" width="6" height="5" rx="1.5"/>
+          <rect class="pole" x="12.5" y="16" width="3" height="10" rx="1"/>
+        </svg>
+        <span>Floodlit</span>
+      </a>
+      <nav class="nav-links" aria-label="Main">
+        <a href="#pitches" data-player-link>Pitches</a>
+        <a href="#squads" data-player-link>Squad board</a>
+        <button class="nav-mine" id="open-mine" type="button">
+          <span class="hide-sm">My bookings</span><span class="show-sm">Bookings</span> <span class="badge" id="mine-count" hidden>0</span>
+        </button>
+        <a class="nav-switch" id="view-switch" href="#owner"><span id="view-switch-l">Owner</span><span class="hide-sm"> view</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ================= PLAYER VIEW ================= -->
+    <div id="player-view">
+
+      <!-- HERO -->
+      <section class="hero" id="play" aria-labelledby="hero-title">
+        <div class="wrap hero-inner">
+          <div class="hero-copy">
+            <h1 class="hero-title" id="hero-title">Book a pitch under the lights</h1>
+            <p class="hero-lede">Live slots at six turfs across Dhaka. Hold your time for 10 minutes, split the cost with your squad, and walk in with a match pass.</p>
+            <div class="hero-ctas">
+              <a class="btn btn-primary btn-lg" href="#pitches">Find a pitch</a>
+              <a class="btn btn-ghost btn-lg" href="#owner">See the owner dashboard</a>
+            </div>
+          </div>
+
+          <div class="hero-stage" id="hero-stage">
+            <canvas id="pitch3d" aria-label="Animated floodlit five-a-side pitch with a match in progress" role="img"></canvas>
+            <div class="sb" id="scoreboard" aria-hidden="true">
+              <p class="sb-where"><span class="live-dot"></span>Pitch A, Sky Deck Arena</p>
+              <div class="sb-row">
+                <span class="sb-team"><i class="kit kit-a"></i>Night Owls</span>
+                <span class="sb-score" id="sb-score">0–0</span>
+                <span class="sb-team">Late Shift<i class="kit kit-b"></i></span>
+              </div>
+            </div>
+            <div class="open-now" id="open-now">
+              <p class="open-n" id="open-count">–</p>
+              <p class="open-l"><span id="open-label">open slots tonight</span><br><span id="open-next">Next kick-off –</span></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FINDER -->
+      <section class="section finder" id="pitches" aria-labelledby="finder-title">
+        <div class="wrap">
+          <div class="sec-head">
+            <h2 class="sec-title" id="finder-title">Pitches tonight</h2>
+            <p class="sec-sub">Every slot below is open right now. Tap a time to book it.</p>
+          </div>
+
+          <form class="console" id="console" autocomplete="off">
+            <div class="ask">
+              <label class="sr-only" for="ask-input">Describe the game you want</label>
+              <div class="ask-field">
+                <svg class="ask-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+                <input id="ask-input" name="ask" type="text" placeholder="7-a-side in Mirpur tomorrow after 9pm">
+              </div>
+              <button class="btn btn-primary" type="submit">Search</button>
+            </div>
+            <div class="ask-try" id="ask-try">
+              <span>Try</span>
+              <button type="button" class="try">rooftop tonight under 4000</button>
+              <button type="button" class="try">5-a-side in Dhanmondi on Friday evening</button>
+              <button type="button" class="try">indoor AC tomorrow after 8pm</button>
+            </div>
+            <p class="ask-read" id="ask-read" hidden></p>
+
+            <div class="filters">
+              <div class="f-group f-dates">
+                <span class="f-label" id="lbl-day">Day</span>
+                <div class="dates" id="f-dates" role="group" aria-labelledby="lbl-day"></div>
+              </div>
+              <div class="f-group">
+                <label class="f-label" for="f-area">Area</label>
+                <select id="f-area">
+                  <option value="all">All of Dhaka</option>
+                </select>
+              </div>
+              <div class="f-group">
+                <span class="f-label" id="lbl-time">Kick-off</span>
+                <div class="seg" id="f-win" role="group" aria-labelledby="lbl-time">
+                  <button type="button" data-win="any">Any</button>
+                  <button type="button" data-win="morning">Morning</button>
+                  <button type="button" data-win="day">Day</button>
+                  <button type="button" data-win="evening">Evening</button>
+                  <button type="button" data-win="late">Late</button>
+                </div>
+              </div>
+              <div class="f-group">
+                <span class="f-label" id="lbl-size">Format</span>
+                <div class="seg" id="f-size" role="group" aria-labelledby="lbl-size">
+                  <button type="button" data-size="any">Any</button>
+                  <button type="button" data-size="5">5-a-side</button>
+                  <button type="button" data-size="7">7-a-side</button>
+                </div>
+              </div>
+              <div class="f-group">
+                <span class="f-label" id="lbl-type">Type</span>
+                <div class="toggles" role="group" aria-labelledby="lbl-type">
+                  <button type="button" class="tog" id="f-indoor" aria-pressed="false">Indoor AC</button>
+                  <button type="button" class="tog" id="f-rooftop" aria-pressed="false">Rooftop</button>
+                </div>
+              </div>
+              <div class="f-group f-price">
+                <label class="f-label" for="f-max">Max per hour <output id="f-max-out">৳6,000</output></label>
+                <input id="f-max" type="range" min="1500" max="6000" step="250" value="6000">
+              </div>
+              <div class="f-group">
+                <label class="f-label" for="f-sort">Sort</label>
+                <select id="f-sort">
+                  <option value="soonest">Soonest open slot</option>
+                  <option value="price">Lowest price</option>
+                  <option value="rating">Top rated</option>
+                </select>
+              </div>
+            </div>
+          </form>
+
+          <div class="results-meta">
+            <p id="results-count" aria-live="polite"></p>
+            <button type="button" class="link-btn" id="clear-filters">Clear filters</button>
+          </div>
+          <ol class="fixtures" id="fixtures"></ol>
+        </div>
+      </section>
+
+      <!-- OWNER BAND -->
+      <section class="owner-band" aria-labelledby="band-title">
+        <div class="wrap band-inner">
+          <div>
+            <h2 class="band-title" id="band-title">Run a turf?</h2>
+            <p>See tonight's bookings, add walk-ins and change your prices from one screen. Bookings made on this page show up there instantly.</p>
+          </div>
+          <a class="btn btn-primary btn-lg" href="#owner">Open the owner dashboard</a>
+        </div>
+      </section>
+
+      <!-- SQUAD BOARD -->
+      <section class="section squads" id="squads" aria-labelledby="squads-title">
+        <div class="wrap">
+          <div class="sec-head">
+            <h2 class="sec-title" id="squads-title">Squad board</h2>
+            <p class="sec-sub">Teams short on players. Join a game, or post one when your squad is missing a few.</p>
+          </div>
+          <div class="squad-layout">
+            <ul class="squad-list" id="squad-list"></ul>
+
+            <form class="post-form panel" id="post-form" novalidate>
+              <h3 class="panel-title">Need players?</h3>
+              <label>Team name
+                <input id="pf-team" type="text" placeholder="Friday Night FC" maxlength="32">
+              </label>
+              <label>Turf
+                <select id="pf-turf"></select>
+              </label>
+              <div class="two">
+                <label>Day
+                  <select id="pf-day"><option value="0">Today</option><option value="1">Tomorrow</option></select>
+                </label>
+                <label>Kick-off
+                  <select id="pf-time"></select>
+                </label>
+              </div>
+              <div class="two">
+                <label>Players needed
+                  <select id="pf-need"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option></select>
+                </label>
+                <label>Level
+                  <select id="pf-level"><option>Casual</option><option>Intermediate</option><option>Competitive</option></select>
+                </label>
+              </div>
+              <label><span>Note <span class="opt">optional</span></span>
+                <input id="pf-note" type="text" placeholder="Need a keeper, bibs provided" maxlength="70">
+              </label>
+              <p class="form-err" id="pf-err" hidden></p>
+              <button class="btn btn-primary btn-block" type="submit">Post to squad board</button>
+            </form>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ================= OWNER VIEW ================= -->
+    <div id="owner-view" hidden>
+      <section class="section owner" aria-labelledby="owner-title">
+        <div class="wrap">
+          <div class="owner-head">
+            <div>
+              <p class="owner-who"><span class="pill pill-demo">Signed in as turf owner (demo)</span></p>
+              <h1 class="sec-title" id="owner-title">Owner dashboard</h1>
+              <p class="sec-sub" id="owner-date"></p>
+            </div>
+            <label class="owner-pick">Turf
+              <select id="owner-turf"></select>
+            </label>
+          </div>
+
+          <div class="kpis" id="kpis"></div>
+
+          <div class="panel tl-panel">
+            <div class="panel-head">
+              <div class="tl-title">
+                <h2 class="panel-title">Schedule</h2>
+                <div class="seg" id="tl-day" role="group" aria-label="Schedule day">
+                  <button type="button" data-off="0">Today</button>
+                  <button type="button" data-off="1">Tomorrow</button>
+                </div>
+              </div>
+              <ul class="legend" id="tl-legend">
+                <li><i class="sw sw-online"></i>Booked online</li>
+                <li><i class="sw sw-walkin"></i>Walk-in</li>
+                <li><i class="sw sw-mine"></i>Booked during this demo</li>
+              </ul>
+            </div>
+            <div class="tl-scroll"><div class="tl" id="timeline"></div></div>
+          </div>
+
+          <div class="grid-2">
+            <div class="panel">
+              <div class="panel-head">
+                <h2 class="panel-title">Revenue, last 14 days</h2>
+                <ul class="legend">
+                  <li><i class="sw sw-online"></i>Online</li>
+                  <li><i class="sw sw-walkin"></i>Walk-in</li>
+                </ul>
+              </div>
+              <div class="chart" id="rev-chart"></div>
+            </div>
+            <div class="panel">
+              <div class="panel-head">
+                <h2 class="panel-title">Busiest hours, last 4 weeks</h2>
+              </div>
+              <div class="heat-scroll"><div class="heat" id="heat"></div></div>
+              <div class="heat-scale"><span>Quiet</span><i></i><span>Fully booked</span></div>
+            </div>
+          </div>
+
+          <div class="grid-2 grid-2b">
+            <form class="panel walkin" id="walkin" novalidate>
+              <h2 class="panel-title">Add a walk-in</h2>
+              <p class="panel-sub">Phone and cash bookings go here so online players never see a slot that's already taken.</p>
+              <div class="two">
+                <label>Pitch <select id="wi-pitch"></select></label>
+                <label>Length
+                  <select id="wi-dur"><option value="60">1 hour</option><option value="90">90 min</option><option value="120">2 hours</option></select>
+                </label>
+              </div>
+              <label><span id="wi-start-l">Kick-off today</span> <select id="wi-start"></select></label>
+              <div class="two">
+                <label>Team name <input id="wi-team" type="text" placeholder="Walk-in team" maxlength="32"></label>
+                <label><span>Phone <span class="opt">optional</span></span> <input id="wi-phone" type="tel" inputmode="numeric" placeholder="01XXXXXXXXX" maxlength="11"></label>
+              </div>
+              <p class="form-err" id="wi-err" hidden></p>
+              <button class="btn btn-primary" type="submit">Add walk-in</button>
+            </form>
+
+            <div class="panel pricing" id="pricing">
+              <h2 class="panel-title">Pricing rules</h2>
+              <p class="panel-sub">Players see new prices right away. Bookings already made keep their price.</p>
+              <label class="rule">Base rate, 1 hour on a 5-a-side pitch
+                <span class="rule-row"><input id="pr-base" type="range" min="1000" max="5000" step="100"><output id="pr-base-o"></output></span>
+              </label>
+              <label class="rule">Evening peak, 5–11 PM
+                <span class="rule-row"><input id="pr-peak" type="range" min="1" max="1.8" step="0.05"><output id="pr-peak-o"></output></span>
+              </label>
+              <label class="rule">Late night, after 11 PM
+                <span class="rule-row"><input id="pr-late" type="range" min="1" max="1.5" step="0.05"><output id="pr-late-o"></output></span>
+              </label>
+              <label class="rule">Weekend surcharge, Friday and Saturday
+                <span class="rule-row"><input id="pr-wknd" type="range" min="0" max="40" step="5"><output id="pr-wknd-o"></output></span>
+              </label>
+              <div class="rule rule-switch">
+                <span id="pr-deal-l">Morning deal: 20% off before noon</span>
+                <button type="button" class="switch" id="pr-deal" role="switch" aria-checked="false" aria-labelledby="pr-deal-l"><i></i></button>
+              </div>
+              <table class="preview" id="pr-preview"></table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <p class="foot-brand">Floodlit</p>
+      <p>A product demo. Turfs, teams, bookings and payments are fictional, and no money moves.</p>
+      <p class="foot-credit">Demo built by <span id="builder">Jonayed Hossain</span></p>
+    </div>
+  </footer>
+
+  <!-- ================= BOOKING DRAWER ================= -->
+  <div class="scrim" id="scrim" hidden></div>
+
+  <aside class="drawer" id="book" role="dialog" aria-modal="true" aria-labelledby="book-title" hidden>
+    <header class="dr-head">
+      <div class="dr-titles">
+        <h2 class="dr-title" id="book-title">Book a pitch</h2>
+        <p class="dr-sub" id="book-sub"></p>
+      </div>
+      <div class="hold" id="hold" hidden>
+        <svg viewBox="0 0 36 36" aria-hidden="true"><circle class="hold-track" cx="18" cy="18" r="15"/><circle class="hold-ring" id="hold-ring" cx="18" cy="18" r="15"/></svg>
+        <p><b id="hold-time">10:00</b><span>slot held</span></p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Close booking">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <ol class="steps" id="steps">
+      <li data-step="1"><i>1</i><span>Slot</span></li>
+      <li data-step="2"><i>2</i><span>Squad</span></li>
+      <li data-step="3"><i>3</i><span>Pay</span></li>
+      <li data-step="4"><i>4</i><span>Match pass</span></li>
+    </ol>
+    <div class="dr-body" id="book-body"></div>
+    <footer class="dr-foot" id="book-foot"></footer>
+    <canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+  </aside>
+
+  <aside class="drawer" id="mine" role="dialog" aria-modal="true" aria-labelledby="mine-title" hidden>
+    <header class="dr-head">
+      <div class="dr-titles">
+        <h2 class="dr-title" id="mine-title">My bookings</h2>
+        <p class="dr-sub">Saved in this browser</p>
+      </div>
+      <button class="icon-btn" type="button" data-close aria-label="Close my bookings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </header>
+    <div class="dr-body" id="mine-body"></div>
+  </aside>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+  <div class="tip" id="tip" role="tooltip" hidden></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/pitch3d.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/owner.js"></script>
+</body>
+</html>
